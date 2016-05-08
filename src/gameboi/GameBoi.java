@@ -4,6 +4,8 @@
  * and open the template in the editor.
  */
 package gameboi;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  *
@@ -12,10 +14,16 @@ package gameboi;
 public class GameBoi {
 
     /**
-     * @param args the command line arguments
+     * @param argv the command line arguments
      */
-    public static void main(String[] args) {
-        System.out.println("Hello World!");
+    public static void main(String[] argv) {
+        
+        Path rom_path = Paths.get(argv[0]);
+        
+        GBMem memory = new GBMem(rom_path);
+        
+        memory.readByte(0);
+
     }
     
 }
