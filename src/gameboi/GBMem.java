@@ -11,14 +11,25 @@ import java.nio.file.Files;
 import java.io.IOException;
 
 /**
- *
+ * Represents the memory of the gameboy
+ * <p>
+ * Provides an interface for accessing the memory necessary
+ * for the gameboy cpu and gpu operations
+ * 
  * @author thomas
  */
 public class GBMem {
     private int memory[];
     private int cartridge[];
     
-        
+    /**
+     * Constructor for GBMem object
+     * <p>
+     * Initializes the GBMem object and loads the 'cartridge'
+     * into memory
+     * 
+     * @param path  (required) Path object specifying the game rom to load
+     */
     public GBMem(Path path) {
         memory = new int[0x10000];
         
@@ -33,7 +44,7 @@ public class GBMem {
             System.out.println("Number of bytes in file: " + rom.length);
 
         } catch (IOException e) {
-            System.out.println(e);
+            System.err.println("Caught IOException: " + e.getMessage());
             System.exit(1);
         }
     }
