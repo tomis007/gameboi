@@ -7,7 +7,7 @@ package gameboi;
 
 /**
  *
- * @author thomas
+ * @author tomis007
  */
 public class CPU {
     
