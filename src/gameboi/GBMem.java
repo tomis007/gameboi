@@ -61,16 +61,26 @@ public class GBMem {
         }
     }
 
-
+    /**
+     * Read a 'byte' from memory.
+     * 
+     * <p> Returns an int with the value of the byte stored in memory
+     *     at address.
+     * 
+     * @param address (required) address to read data in memory from
+     * @return an int that is the value of the data stored in memory
+     *     at address
+     * @see GBMem
+     */ 
     public int readByte(int address) {
         return memory[address];
     }
 
     /**
-     * write a 'byte' to the gameboy memory
+     * Write a 'byte' to the gameboy memory.
      * 
-     * <p>Writes the input int data to gameboy memory, only storing the low
-     *     8 bits
+     * <p> Writes the input int data to gameboy memory, only storing the low
+     *     8 bits.
      * 
      * @param address (required) int specifying valid address to write at 
      * @param data (required) int 'byte' data to write
