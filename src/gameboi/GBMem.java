@@ -15,8 +15,23 @@ import java.io.IOException;
  * <p>
  * Provides an interface for accessing the memory necessary
  * for the gameboy cpu and gpu operations
+ * <p>
+ * Internal Memory structure of the gameboy is as follows
+ * <ul>
+ *   <li> 0000-3FFF - 16Kb ROM Bank 00</li>
+ *   <li> 4000-7FFF - 16Kb ROM variable bank</li>
+ *   <li> 8000-9FFF - 8Kb Graphics RAM</li>
+ *   <li> A000-BFFF - 8Kb Switchable External RAM Bank</li>
+ *   <li> C000-DFFF - 8Kb Working RAM</li>
+ *   <li> E000-FDFF - Working RAM shadow</li>
+ *   <li> FE00-FE9F - Graphics + Sprite Info (OAM)</li>
+ *   <li> FEA0-FEFF - Unusable</li>
+ *   <li> FF00-FF7F - I/O Info</li>
+ *   <li> FF80-FFFE - Zero-Page RAM</li>
+ *   <li> FFFF      - Interrupt Enable Register</li>
+ * </ul>
  * 
- * @author thomas
+ * @author tomis007
  */
 public class GBMem {
     private int memory[];
@@ -39,23 +54,50 @@ public class GBMem {
             
             for (int i = 0; i < rom.length; ++i) {
                 cartridge[i] = Byte.toUnsignedInt(rom[i]);
-                System.out.println(cartridge[i]);
             }
-            System.out.println("Number of bytes in file: " + rom.length);
-
         } catch (IOException e) {
             System.err.println("Caught IOException: " + e.getMessage());
             System.exit(1);
         }
     }
 
-    
-    public int readByte(int address) {
-        return 0;
-    }
-    
-    public void writeByte(int address, int data) {
 
+    public int readByte(int address) {
+        return memory[address];
+    }
+
+    /**
+     * write a 'byte' to the gameboy memory
+     * 
+     * <p>Writes the input int data to gameboy memory, only storing the low
+     *     8 bits
+     * 
+     * @param address (required) int specifying valid address to write at 
+     * @param data (required) int 'byte' data to write
+     * @see GBMem
+     */ 
+    public void writeByte(int address, int data) {
+        //only store a byte in memory
+        data = data & 0x0ff;
+        
+        if (address < 0) {
+            System.err.println("ERROR: writing to negative address");
+            System.exit(1);
+        } else if (address < 0x8000) {
+            // can't write to ROM
+        } else if ((address >= 0xfea0) && (address <= 0xfeff)) {
+            // can't access this region
+        } else if ((address >= 0xc000) && (address <= 0xde00)) {
+            memory[address] = data;
+            // ECHO
+            memory[address + 0x2000] = data;
+        } else if ((address >= 0xc000) && (address <= 0xfe00)) {
+            memory[address] = data;
+            // ECHO
+            memory[address - 0x2000] = data;
+        } else {
+            memory[address] = data;
+        }
     }
     
     public int readWord(int address) {
