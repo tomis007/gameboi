@@ -9,7 +9,7 @@ import java.nio.file.Paths;
 
 /**
  *
- * @author thomas
+ * @author tomis007
  */
 public class GameBoi {
 
@@ -22,8 +22,8 @@ public class GameBoi {
         
         GBMem memory = new GBMem(rom_path);
         
-        memory.readByte(0);
-
+        memory.writeByte(0x9000, 8);
+        System.out.println(memory.readByte(0x9000));
     }
     
 }
