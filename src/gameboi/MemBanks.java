@@ -10,7 +10,7 @@ package gameboi;
  * 
  * Simulates the external ROM bank attached in the original gameboy cartridges
  * 
- * NOTE: ONLY MBC1 is currently being written
+ * NOTE: ONLY MBC1 is "implemented"
  * TODO: UPDATE RAM BANKING AND OTHER MEMBANK TYPES
  * 
  * @author tomis007
@@ -21,6 +21,7 @@ public class MemBanks {
     private int curRAMBank;
     private int curROMBank;
     private boolean isRomBanking;
+    private boolean ramEnabled;
     /**
      * Enum type for different RomBanks
      * 
@@ -61,6 +62,7 @@ public class MemBanks {
         curROMBank = 1;
         curRAMBank = 0;
         isRomBanking = true; //default value
+        ramEnabled = false;
     }
     
     /**
@@ -86,6 +88,16 @@ public class MemBanks {
     }
     
     /**
+     * Returns whether or not ram bank writing is enabled
+     * 
+     * @return true if ram bank writing enabled, false if not
+     */ 
+    public boolean isRamEnabled() {
+        return ramEnabled;
+    }
+    
+    
+    /**
      * updates the Memory Banks
      * 
      * <p> Bank updates are triggered when the gameboy attempts to write
@@ -96,16 +108,23 @@ public class MemBanks {
      */ 
     public void updateBanking(int address, int data) {
         if (address < 0x2000) {
-            
-            
+            if (bankMode == Mode.MBC1) {
+                int mode = data & 0xf;
+                if (mode == 0xa) {
+                    ramEnabled = true;
+                }
+                if (mode == 0x0) {
+                    ramEnabled = false;
+                }       
+            }
         } else if ((address >= 0x2000) && (address < 0x4000)) {
             if (bankMode == Mode.MBC1) {
                 curROMBank &= 0xe0;
                 curROMBank |= (data & 0x1f);
                 curROMBank += (curROMBank == 0) ? 1 : 0;
-            } else if (bankMode == Mode.MBC2) {
-                curROMBank = data & 0xf;
-            }
+            } //nelse if (bankMode == Mode.MBC2) {
+              //  curROMBank = data & 0xf;
+//            }
         } else if ((address >= 0x4000) && (address < 0x6000)) {
             if (bankMode == Mode.MBC1) {
                 if (isRomBanking) {
@@ -123,6 +142,20 @@ public class MemBanks {
                     curRAMBank = 0;
                 }
             }
+        }
+    }
+    
+    
+    /**
+     * writes byte to switchable ram bank
+     * 
+     * @param address (required) address to write to
+     * @param data (required) data to write
+     */ 
+    public void writeByte(int address, int data) {
+        data = data & 0x0ff;
+        if (ramEnabled) {
+            ramBank[(address - 0xa000) + (curRAMBank * 0x2000)] = data;
         }
     }
 }
