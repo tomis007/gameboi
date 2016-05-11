@@ -36,7 +36,7 @@ import java.io.IOException;
 public class GBMem {
     private int memory[];
     private int cartridge[];
-    
+    private MemBanks memBank;
     /**
      * Constructor for GBMem object
      * <p>
@@ -47,7 +47,7 @@ public class GBMem {
      */
     public GBMem(Path path) {
         memory = new int[0x10000];
-        
+
         try {
             byte[] rom = Files.readAllBytes(path);
             cartridge = new int[rom.length];
@@ -55,10 +55,16 @@ public class GBMem {
             for (int i = 0; i < rom.length; ++i) {
                 cartridge[i] = Byte.toUnsignedInt(rom[i]);
             }
+            for (int i = 0; i < 0x8000 && i < rom.length; ++i) {
+                memory[i] = cartridge[i];
+            }
+            
+            memBank = new MemBanks(cartridge);
         } catch (IOException e) {
             System.err.println("Caught IOException: " + e.getMessage());
             System.exit(1);
         }
+        
     }
 
     /**
@@ -73,7 +79,13 @@ public class GBMem {
      * @see GBMem
      */ 
     public int readByte(int address) {
-        return memory[address];
+        if (((address >= 0x4000) && (address <= 0x7fff)) || 
+                ((address >= 0xa000) && (address <= 0xbfff))) {
+            //rom or ram banking
+            return memBank.readByte(address);
+        } else {
+            return memory[address];
+        }
     }
 
     /**
@@ -94,7 +106,8 @@ public class GBMem {
             System.err.println("ERROR: writing to negative address");
             System.exit(1);
         } else if (address < 0x8000) {
-            // can't write to ROM
+            // can't write to ROM, but update banks
+            memBank.updateBanking(address, data);
         } else if ((address >= 0xfea0) && (address <= 0xfeff)) {
             // can't access this region
         } else if ((address >= 0xc000) && (address <= 0xde00)) {
@@ -106,7 +119,11 @@ public class GBMem {
             // ECHO
             memory[address - 0x2000] = data;
         } else {
-            memory[address] = data;
+            if (memBank.isRamEnabled()) {
+                memBank.writeByte(address, data);
+            } else {
+                memory[address] = data;
+            }
         }
     }
     
