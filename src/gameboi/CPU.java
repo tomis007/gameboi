@@ -92,7 +92,6 @@ public class CPU {
      * @param register (required) register (nn) to load to
      */ 
     private int eightBitLdNnN(GBRegisters.Reg register) {
-        // modified for testing without memory access
         int data = memory.readByte(pc);
         pc++;
         registers.setReg(register, data);
@@ -110,41 +109,38 @@ public class CPU {
 //        for (int i = 0; i < 2000; ++i) {
 //            int data = rand.nextInt(256);
 //            for (int j = 0; j < 200; ++j) {
-//                eightBitLdNnN(Reg.REG_E, data);
-//                if (registers.getE() != data) {
+//                eightBitLdNnN(GBRegisters.Reg.E, data);
+//                if (registers.getReg(GBRegisters.Reg.E)!= data) {
 //                    System.err.println("Error failed register E test");
 //                }
 //                data = rand.nextInt(256);
-//                eightBitLdNnN(Reg.REG_B, data);
-//                if (registers.getB() != data) {
+//                eightBitLdNnN(GBRegisters.Reg.B, data);
+//                if (registers.getReg(GBRegisters.Reg.B)!= data) {
 //                    System.err.println("Error failed register B test");
 //                }
 //                data = rand.nextInt(256);
-//                eightBitLdNnN(Reg.REG_C, data);
-//                if (registers.getC() != data) {
+//                eightBitLdNnN(GBRegisters.Reg.C, data);
+//                if (registers.getReg(GBRegisters.Reg.C) != data) {
 //                    System.err.println("Error failed register C test");
 //                }
 //                data = rand.nextInt(256);
-//                eightBitLdNnN(Reg.REG_D, data);
-//                if (registers.getD() != data) {
+//                eightBitLdNnN(GBRegisters.Reg.D, data);
+//                if (registers.getReg(GBRegisters.Reg.D) != data) {
 //                    System.err.println("Error failed register D test");
 //                }
 //                data = rand.nextInt(256);
-//                eightBitLdNnN(Reg.REG_H, data);
-//                if (registers.getH() != data) {
+//                eightBitLdNnN(GBRegisters.Reg.H, data);
+//                if (registers.getReg(GBRegisters.Reg.H) != data) {
 //                    System.err.println("Error failed register H test");
 //                }
 //                data = rand.nextInt(256);
-//                eightBitLdNnN(Reg.REG_L, data);
-//                if (registers.getL() != data) {
+//                eightBitLdNnN(GBRegisters.Reg.L, data);
+//                if (registers.getReg(GBRegisters.Reg.L) != data) {
 //                    System.err.println("Error failed register L test");
 //                }
-//            
 //            }
 //        }
-        System.out.println("Finished and reported all error messages");
+//        System.out.println("Finished and reported all error messages");
     }
-    
-
 }
 
