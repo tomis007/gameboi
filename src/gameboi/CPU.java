@@ -66,28 +66,20 @@ public class CPU {
      * @return number of cycles taken to execute
      */ 
     private int runInstruction(int opcode) { 
-        int cycles = 0;
         switch (opcode) {
-            case 0x0:  cycles = 4; //NOP
-                       break;
-            case 0x06: cycles = eightBitLdNnN(GBRegisters.Reg.B);
-                       break;
-            case 0x0e: cycles = eightBitLdNnN(GBRegisters.Reg.C);
-                       break;
-            case 0x16: cycles = eightBitLdNnN(GBRegisters.Reg.D);
-                       break;
-            case 0x1e: cycles = eightBitLdNnN(GBRegisters.Reg.E);
-                       break;
-            case 0x26: cycles = eightBitLdNnN(GBRegisters.Reg.H);
-                       break;
-            case 0x2e: cycles = eightBitLdNnN(GBRegisters.Reg.L);
-                       break;
+            case 0x0:  return 4; //NOP
+            case 0x06: return eightBitLdNnN(GBRegisters.Reg.B);
+            case 0x0e: return eightBitLdNnN(GBRegisters.Reg.C);
+            case 0x16: return eightBitLdNnN(GBRegisters.Reg.D);
+            case 0x1e: return eightBitLdNnN(GBRegisters.Reg.E);
+            case 0x26: return eightBitLdNnN(GBRegisters.Reg.H);
+            case 0x2e: return eightBitLdNnN(GBRegisters.Reg.L);
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
                 System.exit(1);
         }    
-        return cycles;
+        return 0;
     }
     
     
