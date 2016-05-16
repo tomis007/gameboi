@@ -68,12 +68,76 @@ public class CPU {
     private int runInstruction(int opcode) { 
         switch (opcode) {
             case 0x0:  return 4; //NOP
+            
+            // LD nn,n
             case 0x06: return eightBitLdNnN(GBRegisters.Reg.B);
             case 0x0e: return eightBitLdNnN(GBRegisters.Reg.C);
             case 0x16: return eightBitLdNnN(GBRegisters.Reg.D);
             case 0x1e: return eightBitLdNnN(GBRegisters.Reg.E);
             case 0x26: return eightBitLdNnN(GBRegisters.Reg.H);
             case 0x2e: return eightBitLdNnN(GBRegisters.Reg.L);
+            
+            //LD r1,r2
+            case 0x7f: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.A);
+            case 0x78: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.B);
+            case 0x79: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.C);
+            case 0x7a: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.D);
+            case 0x7b: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.E);
+            case 0x7c: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.H);
+            case 0x7d: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.L);
+            case 0x7e: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.HL);
+            case 0x40: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.B);
+            case 0x41: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.C);
+            case 0x42: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.D);
+            case 0x43: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.E);
+            case 0x44: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.H);
+            case 0x45: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.L);
+            case 0x46: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.HL);
+            case 0x48: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.B);
+            case 0x49: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.C);
+            case 0x4a: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.D);
+            case 0x4b: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.E);
+            case 0x4c: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.H);
+            case 0x4d: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.L);
+            case 0x4e: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.HL);
+            case 0x50: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.B);
+            case 0x51: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.C);
+            case 0x52: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.D);
+            case 0x53: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.E);
+            case 0x54: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.H);
+            case 0x55: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.L);
+            case 0x56: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.HL);
+            case 0x58: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.B);
+            case 0x59: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.C);
+            case 0x5a: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.D);
+            case 0x5b: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.E);
+            case 0x5c: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.H);
+            case 0x5d: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.L);
+            case 0x5e: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.HL);
+            case 0x60: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.B);
+            case 0x61: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.C);
+            case 0x62: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.D);
+            case 0x63: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.E);
+            case 0x64: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.H);
+            case 0x65: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.L);
+            case 0x66: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.HL);
+            case 0x68: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.B);
+            case 0x69: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.C);
+            case 0x6a: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.D);
+            case 0x6b: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.E);
+            case 0x6c: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.H);
+            case 0x6d: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.L);
+            case 0x6e: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.HL);
+            case 0x70: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.B);
+            case 0x71: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.C);
+            case 0x72: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.D);
+            case 0x73: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.E);
+            case 0x74: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.H);
+            case 0x75: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.L);
+            // special 8 bit load from memory
+            case 0x36: return eightBitLoadFromMem();
+            
+            
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
@@ -141,6 +205,41 @@ public class CPU {
 //            }
 //        }
 //        System.out.println("Finished and reported all error messages");
+    }
+    
+    
+    /**
+     * Put value r2 into r2.
+     * 
+     * <p> Use with: r1,r2 = A,B,C,D,E,H,L,(HL)
+     * 
+     * @param dest destination register
+     * @param scr  source register
+     */ 
+    private int eightBitLdR1R2(GBRegisters.Reg dest, GBRegisters.Reg src) {
+        if (src == GBRegisters.Reg.HL) {
+            int data = memory.readByte(registers.getReg(GBRegisters.Reg.HL));
+            registers.setReg(dest, data);
+            return 8;
+        } else if (dest == GBRegisters.Reg.HL) {
+            memory.writeByte(registers.getReg(dest), registers.getReg(src));
+            return 8;
+        } else {
+            registers.setReg(dest, registers.getReg(src));
+            return 4;
+        }
+    }
+    
+    /**
+     * Special function for opcode 0x36
+     * 
+     * LD (HL), n
+     */ 
+    private int eightBitLoadFromMem() {
+        int data = memory.readByte(pc);
+        pc++;
+        memory.writeByte(registers.getReg(GBRegisters.Reg.HL), data);
+        return 12;
     }
 }
 
