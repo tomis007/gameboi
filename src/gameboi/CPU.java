@@ -5,6 +5,9 @@
  */
 package gameboi;
 
+// for testing
+import java.util.Random;
+
 
 /**
  * Z80 Gameboy CPU
@@ -49,7 +52,8 @@ public class CPU {
         
         int opcode = memory.readByte(pc);
         pc++;
-        return runInstruction(opcode);
+        //        return runInstruction(opcode);
+        return 0;
     }
     
     
@@ -64,30 +68,30 @@ public class CPU {
      * @param opcode (required) opcode to execute
      * @return number of cycles taken to execute
      */ 
-    private int runInstruction(int opcode) { 
-        int cycles = 0;
-        switch (opcode) {
-            case 0x0:  cycles = 4; //NOP
-                       break;
-            case 0x06: cycles = eightBitLdNnN(Reg.REG_B);
-                       break;
-            case 0x0e: cycles = eightBitLdNnN(Reg.REG_C);
-                       break;
-            case 0x16: cycles = eightBitLdNnN(Reg.REG_D);
-                       break;
-            case 0x1e: cycles = eightBitLdNnN(Reg.REG_E);
-                       break;
-            case 0x26: cycles = eightBitLdNnN(Reg.REG_H);
-                       break;
-            case 0x2e: cycles = eightBitLdNnN(Reg.REG_L);
-                       break;
-            default:
-                System.err.println("Unimplemented opcode: 0x" + 
-                        Integer.toHexString(opcode));
-                System.exit(1);
-        }    
-        return cycles;
-    }
+//    private int runInstruction(int opcode) { 
+//        int cycles = 0;
+//        switch (opcode) {
+//            case 0x0:  cycles = 4; //NOP
+//                       break;
+//            case 0x06: cycles = eightBitLdNnN(Reg.REG_B);
+//                       break;
+//            case 0x0e: cycles = eightBitLdNnN(Reg.REG_C);
+//                       break;
+//            case 0x16: cycles = eightBitLdNnN(Reg.REG_D);
+//                       break;
+//            case 0x1e: cycles = eightBitLdNnN(Reg.REG_E);
+//                       break;
+//            case 0x26: cycles = eightBitLdNnN(Reg.REG_H);
+//                       break;
+//            case 0x2e: cycles = eightBitLdNnN(Reg.REG_L);
+//                       break;
+//            default:
+//                System.err.println("Unimplemented opcode: 0x" + 
+//                        Integer.toHexString(opcode));
+//                System.exit(1);
+//        }    
+//        return cycles;
+//    }
     
     
     /**
@@ -98,8 +102,10 @@ public class CPU {
      * 
      * @param register (required) register (nn) to load to
      */ 
-    private int eightBitLdNnN(Reg register) {
-        int data = memory.readByte(pc);
+    private int eightBitLdNnN(Reg register, int data) {
+        // modified for testing without memory access
+//        int data = memory.readByte(pc);
+
         pc++;
         switch(register) {
             case REG_B: registers.setB(data);
@@ -120,5 +126,50 @@ public class CPU {
         return 8;   
     }
     
+    /**
+     * Testing function for EightBitLdNnN
+     * 
+     * Tests the eightBitLdNnN function with random input data
+     * to make sure the function works correctly
+     */ 
+    public void testEightBitLdNnN() {
+        Random rand = new Random();
+        for (int i = 0; i < 2000; ++i) {
+            int data = rand.nextInt(256);
+            for (int j = 0; j < 200; ++j) {
+                eightBitLdNnN(Reg.REG_E, data);
+                if (registers.getE() != data) {
+                    System.err.println("Error failed register E test");
+                }
+                data = rand.nextInt(256);
+                eightBitLdNnN(Reg.REG_B, data);
+                if (registers.getB() != data) {
+                    System.err.println("Error failed register B test");
+                }
+                data = rand.nextInt(256);
+                eightBitLdNnN(Reg.REG_C, data);
+                if (registers.getC() != data) {
+                    System.err.println("Error failed register C test");
+                }
+                data = rand.nextInt(256);
+                eightBitLdNnN(Reg.REG_D, data);
+                if (registers.getD() != data) {
+                    System.err.println("Error failed register D test");
+                }
+                data = rand.nextInt(256);
+                eightBitLdNnN(Reg.REG_H, data);
+                if (registers.getH() != data) {
+                    System.err.println("Error failed register H test");
+                }
+                data = rand.nextInt(256);
+                eightBitLdNnN(Reg.REG_L, data);
+                if (registers.getL() != data) {
+                    System.err.println("Error failed register L test");
+                }
+            
+            }
+        }
+        System.out.println("Finished and reported all error messages");
+    }
 }
 
