@@ -6,8 +6,6 @@
 package gameboi;
 
 
-
-
 /**
  * Z80 Gameboy CPU
  * 
@@ -18,18 +16,23 @@ package gameboi;
  */
 public class CPU {
     // registers
-    private GBRegisters registers;
+    private final GBRegisters registers;
+    private enum Reg {REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_H, 
+                      REG_L, REG_AF, REG_BC, REG_DE, REG_HL};
     
-    private enum Reg {REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_H, REG_L, 
-                      REG_AF, REG_BC, REG_DE, REG_HL};
-    
-    // stack pointer
+    // stack pointer, program counter
     private int sp;
-    // program counter
     private int pc;
+
     //associated memory to use with CPU
-    private GBMem memory;
+    private final GBMem memory;
+
     
+    /**
+     * Constructor for gameboy z80 CPU
+     * 
+     * @param memory GBMem object to associate with this cpu
+     */ 
     public CPU(GBMem memory) {
         pc = 0x100;
         sp = 0xfffe;
@@ -54,7 +57,6 @@ public class CPU {
     /**
      * Opcode Instructions for the Gameboy Z80 Chip.
      * 
-     * NOTE: PUBLIC FOR TESTING!!!!
      * <p>
      * Runs the instruction associated with the opcode, and returns the 
      * clock cycles taken.
@@ -63,28 +65,28 @@ public class CPU {
      * @return number of cycles taken to execute
      */ 
     private int runInstruction(int opcode) { 
-      int cycles = 0;
-      switch (opcode) {
-          case 0x0: cycles = 4; //NOP
-                    break;
-          case 0x06: cycles = eightBitLdNnN(Reg.REG_B);
-                     break;
-          case 0x0e: cycles = eightBitLdNnN(Reg.REG_C);
-                     break;
-          case 0x16: cycles = eightBitLdNnN(Reg.REG_D);
-                     break;
-          case 0x1e: cycles = eightBitLdNnN(Reg.REG_E);
-                     break;
-          case 0x26: cycles = eightBitLdNnN(Reg.REG_H);
-                     break;
-          case 0x2e: cycles = eightBitLdNnN(Reg.REG_L);
-                     break;
-          default:
-              System.err.println("Unimplemented opcode: 0x" + 
-                      Integer.toHexString(opcode));
-              System.exit(1);
-      }    
-      return cycles;
+        int cycles = 0;
+        switch (opcode) {
+            case 0x0:  cycles = 4; //NOP
+                       break;
+            case 0x06: cycles = eightBitLdNnN(Reg.REG_B);
+                       break;
+            case 0x0e: cycles = eightBitLdNnN(Reg.REG_C);
+                       break;
+            case 0x16: cycles = eightBitLdNnN(Reg.REG_D);
+                       break;
+            case 0x1e: cycles = eightBitLdNnN(Reg.REG_E);
+                       break;
+            case 0x26: cycles = eightBitLdNnN(Reg.REG_H);
+                       break;
+            case 0x2e: cycles = eightBitLdNnN(Reg.REG_L);
+                       break;
+            default:
+                System.err.println("Unimplemented opcode: 0x" + 
+                        Integer.toHexString(opcode));
+                System.exit(1);
+        }    
+        return cycles;
     }
     
     
