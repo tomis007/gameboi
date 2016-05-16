@@ -23,8 +23,7 @@ public class GBRegisters {
     private int h;
     private int l;
     
-    public enum Reg {REG_A, REG_B, REG_C, REG_D, REG_E, REG_F, REG_H, 
-                     REG_L, REG_AF, REG_BC, REG_DE, REG_HL};
+    public enum Reg {A, B, C, D, E, F, H, L, AF, BC, DE, HL};
     
     
     /**
@@ -48,34 +47,34 @@ public class GBRegisters {
      * 
      * <p>Value is masked to 8bits (16 if one of the register combinations)
      * 
-     * @param regsiter (required) register to set
+     * @param register (required) register to set
      * @param data (required) data to place in register
      */ 
     public void setReg(Reg register, int data) {
         switch(register) {
-            case REG_A: this.setA(data);
+            case A: this.setA(data);
                         break;
-            case REG_B: this.setB(data);
+            case B: this.setB(data);
                         break;
-            case REG_C: this.setC(data);
+            case C: this.setC(data);
                         break;
-            case REG_D: this.setD(data);
+            case D: this.setD(data);
                         break;
-            case REG_E: this.setE(data);
+            case E: this.setE(data);
                         break;
-            case REG_F: this.setF(data);
+            case F: this.setF(data);
                         break;
-            case REG_H: this.setH(data);
+            case H: this.setH(data);
                         break;
-            case REG_L: this.setL(data);
+            case L: this.setL(data);
                         break;
-            case REG_AF: this.setAF(data);
+            case AF: this.setAF(data);
                         break;
-            case REG_BC: this.setBC(data);
+            case BC: this.setBC(data);
                         break;
-            case REG_DE: this.setDE(data);
+            case DE: this.setDE(data);
                         break;
-            case REG_HL: this.setHL(data);
+            case HL: this.setHL(data);
                         break;
             default: System.err.println("Invalid attempt to set Register!");
                      break;
@@ -94,18 +93,18 @@ public class GBRegisters {
      */ 
     public int getReg(Reg register) {
         switch(register) {
-            case REG_A: return this.getA();
-            case REG_B: return this.getB();
-            case REG_C: return this.getC();
-            case REG_D: return this.getD();
-            case REG_E: return this.getE();
-            case REG_F: return this.getF();
-            case REG_H: return this.getH();
-            case REG_L: return this.getL();
-            case REG_AF: return this.getAF();
-            case REG_BC: return this.getBC();
-            case REG_DE: return this.getDE();
-            case REG_HL: return this.getHL();
+            case A: return this.getA();
+            case B: return this.getB();
+            case C: return this.getC();
+            case D: return this.getD();
+            case E: return this.getE();
+            case F: return this.getF();
+            case H: return this.getH();
+            case L: return this.getL();
+            case AF: return this.getAF();
+            case BC: return this.getBC();
+            case DE: return this.getDE();
+            case HL: return this.getHL();
             default: System.err.println("Invalid attempt to set Register!");
                      break;
         }
