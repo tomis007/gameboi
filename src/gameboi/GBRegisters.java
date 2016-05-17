@@ -244,7 +244,7 @@ public class GBRegisters {
      * @return value in register AF
      */ 
     private int getAF() {
-        return (a << 8) & f;
+        return (a << 8) | f;
     }
     
     /**
@@ -261,7 +261,7 @@ public class GBRegisters {
      * @return value in register BC
      */ 
     private int getBC() {
-        return (b << 8) & c;
+        return (b << 8) | c;
     }
     
     /**
@@ -278,7 +278,7 @@ public class GBRegisters {
      * @return value in register DE
      */ 
     private int getDE() {
-        return (d << 8) & e;
+        return (d << 8) | e;
     }
     
     /**
@@ -295,7 +295,7 @@ public class GBRegisters {
      * @return value in register HL
      */     
     private int getHL() {
-        return (h << 8) & l;
+        return (h << 8) | l;
     }
     
     /**
