@@ -137,7 +137,25 @@ public class CPU {
             // special 8 bit load from memory
             case 0x36: return eightBitLoadFromMem();
             
+            // LD A,n
+            case 0x0a: return eightBitLdAN(GBRegisters.Reg.BC);
+            case 0x1a: return eightBitLdAN(GBRegisters.Reg.DE);
+            case 0xfa: return eightBitALoadMem(true);
+            case 0x3e: return eightBitALoadMem(false);
             
+            // LD n,A
+            case 0x47: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.A);
+            case 0x4f: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.A);
+            case 0x57: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.A);
+            case 0x5f: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.A);
+            case 0x67: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.A);
+            case 0x6f: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.A);
+            case 0x02: return eightBitLdR1R2(GBRegisters.Reg.BC, GBRegisters.Reg.A);
+            case 0x12: return eightBitLdR1R2(GBRegisters.Reg.DE, GBRegisters.Reg.A);
+            case 0x77: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.A);
+            case 0xea: return eightBitLoadToMem();
+                
+                
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
@@ -221,7 +239,8 @@ public class CPU {
             int data = memory.readByte(registers.getReg(GBRegisters.Reg.HL));
             registers.setReg(dest, data);
             return 8;
-        } else if (dest == GBRegisters.Reg.HL) {
+        } else if ((dest == GBRegisters.Reg.HL) || (dest == GBRegisters.Reg.BC) ||
+                   (dest == GBRegisters.Reg.DE)) {
             memory.writeByte(registers.getReg(dest), registers.getReg(src));
             return 8;
         } else {
@@ -240,6 +259,57 @@ public class CPU {
         pc++;
         memory.writeByte(registers.getReg(GBRegisters.Reg.HL), data);
         return 12;
+    }
+    
+    
+    /**
+     * Special function for opcode 0xea
+     * 
+     */ 
+    private int eightBitLoadToMem() {
+        int address = memory.readByte(pc);
+        pc++;
+        address = address | (memory.readByte(pc) << 8);
+        memory.writeByte(address, registers.getReg(GBRegisters.Reg.A));
+        return 16;
+    }
+    
+    /**
+     * LD A,n
+     * 
+     * Put value n into A. For opcodes 0x0a, 0x1a
+     * 
+     * 
+     * @param src value n 
+     */ 
+    private int eightBitLdAN(GBRegisters.Reg src) {
+            int data = memory.readByte(registers.getReg(src));
+            registers.setReg(GBRegisters.Reg.A, data);
+            return 8;
+    }
+
+    /**
+     * LD A,n (where n is located in rom, or an address in rom)
+     * 
+     * For opcodes: 0xfa, 0x3e
+     * 
+     * @param isPointer If true, next two bytes are address in memory to load
+     *     from. If false, eight bit immediate value is loaded.
+     */ 
+    private int eightBitALoadMem(boolean isPointer) {
+        if (isPointer) {
+            int address = memory.readByte(pc);
+            pc++;
+            address = address | (memory.readByte(pc) << 8);
+            pc++;
+            registers.setReg(GBRegisters.Reg.A, memory.readByte(address));
+            return 16;   
+        } else {
+            int data = memory.readByte(pc);
+            pc++;
+            registers.setReg(GBRegisters.Reg.A, data);
+            return 8;
+        }
     }
 }
 
