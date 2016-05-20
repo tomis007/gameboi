@@ -111,6 +111,70 @@ public class GBRegisters {
         return -1;
     }
     
+    
+    //register FLAG functions
+    /**
+     * Set Z FLAG
+     */ 
+    public void setZ() {
+        f |= 0x80;
+    }
+
+    /**
+     * Reset Z Flag
+     */ 
+    public void resetZ() {
+        f &= 0x70;
+    }
+    
+    /**
+     * Set H FLAG
+     * 
+     */ 
+    public void setH() {
+        f |= 0x20;
+    }
+
+    /**
+     * Reset H FLag
+     */ 
+    public void resetH() {
+        f &= 0xd0;
+    }
+    
+    /**
+     * Set C Flag
+     */ 
+    public void setC() {
+        f |= 0x10;
+    }
+
+    /**
+     * Reset C Flag
+     */ 
+    public void resetC() {
+        f &= 0xe0;
+    }
+    
+    /**
+     * Set N FLAG
+     */ 
+    public void setN() {
+        f |= 0x40;
+    }
+    
+    /**
+     * Reset N Flag
+     */ 
+    public void resetN() {
+        f &= 0xb0;
+    }
+    
+    
+    
+    
+    
+    
     /**
      * @return value in register A
      */ 
