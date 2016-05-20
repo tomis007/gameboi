@@ -173,7 +173,21 @@ public class CPU {
             case 0x11: return sixteenBitLdNNn(GBRegisters.Reg.DE);
             case 0x21: return sixteenBitLdNNn(GBRegisters.Reg.HL);
             case 0x31: return sixteenBitLdNNnSP();
-            
+            //LD SP,HL
+            case 0xf9: return sixteenBitLdSpHl();
+            case 0xf8: return sixteenBitLdHlSp();
+            //LD (nn), SP
+            case 0x08: return sixteenBitLdNnSp();
+            //Push nn to stack
+            case 0xf5: return pushNN(GBRegisters.Reg.AF);
+            case 0xc5: return pushNN(GBRegisters.Reg.BC);
+            case 0xd5: return pushNN(GBRegisters.Reg.DE);
+            case 0xe5: return pushNN(GBRegisters.Reg.HL);
+            //POP nn off stack
+            case 0xf1: return popNN(GBRegisters.Reg.AF);
+            case 0xc1: return popNN(GBRegisters.Reg.BC);
+            case 0xd1: return popNN(GBRegisters.Reg.DE);
+            case 0xe1: return popNN(GBRegisters.Reg.HL);
             
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
@@ -459,6 +473,11 @@ public class CPU {
         return 12;
     }
     
+    /**
+     * LD n, nn
+     * Put value nn into SP
+     * 
+     */ 
     private int sixteenBitLdNNnSP() {
         int data = memory.readByte(pc);
         pc++;
@@ -466,6 +485,94 @@ public class CPU {
         pc++;
         
         sp = data;
+        return 12;
+    }
+    
+    /**
+     * LD SP,HL
+     * 
+     * Put HL into SP
+     */ 
+    private int sixteenBitLdSpHl() {
+        sp = registers.getReg(GBRegisters.Reg.HL);
+        return 8;
+    }
+    
+    
+    /**
+     * LDHL SP,n
+     * 
+     * Put SP+n effective address into HL
+     * 
+     * <p>n = one byte signed immediate value
+     * Z - reset
+     * N - reset
+     * H - set or reset according to operation
+     * C - set or reset according to operation
+     * 
+     */ 
+    private int sixteenBitLdHlSp() {
+        int offset = memory.readByte(pc);
+        pc++;
+
+        byte data = (byte)memory.readByte((sp + offset) & 0xffff);
+        registers.setReg(GBRegisters.Reg.HL, data);
+
+        registers.resetZ();
+        registers.resetN();
+        // NOT REALLY SURE HERE, CPU DOCUMENTATION NOT EXACT
+        if (((sp + offset) & 0x1f) > 0xf) {
+            registers.setH();
+        }
+        if ((sp + offset) > 0xffff) {
+            registers.setC();
+        }
+        return 12;
+    }
+    
+    
+    /**
+     * Put SP at address n (2 byte immediate address)
+     * stored little endian
+     */ 
+    private int sixteenBitLdNnSp() {
+        int address = memory.readByte(pc);
+        pc++;
+        address = address | (memory.readByte(pc) << 8);
+        pc++;
+
+        memory.writeByte(address, sp & 0xff);
+        memory.writeByte(address + 1, ((sp & 0xff00) >> 8));
+        
+        return 20;
+    }
+    
+    /**
+     * Push Register Pair value to stack
+     * 
+     * @param src (required) register pair to push to stack
+     */ 
+    private int pushNN(GBRegisters.Reg src) {
+        int registerPair = registers.getReg(src);
+        sp--;
+        memory.writeByte(sp, (registerPair & 0xff00) >> 8);
+        sp--;
+        memory.writeByte(sp, (registerPair & 0xff));
+        return 16;
+    }
+    
+    
+    /**
+     * pop value off stack to a register pair
+     * 
+     * @param dest (required) register to store data in
+     */ 
+    private int popNN(GBRegisters.Reg dest) {
+        int data = memory.readByte(sp);
+        sp++;
+        data = data | (memory.readByte(sp) << 8);
+        sp++;
+        registers.setReg(dest, data);
         return 12;
     }
 }
