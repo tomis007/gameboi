@@ -156,6 +156,24 @@ public class CPU {
             case 0xea: return eightBitLoadToMem();
                 
                 
+            // LD A, (C)
+            case 0xf2: return eightBitLDfromAC();
+            case 0xe2: return eightBitLDtoAC();
+            
+            // LDD A,(HL)
+            case 0x3a: return eightBitLDAHl();
+            // LDD (HL), A
+            case 0x32: return eightBitStoreHL();
+            
+            // LDI (HL), A
+            case 0x2a: return eightBitLDIA();
+            // LDI (HL), A
+            case 0x22: return eightBitLDIHLA();
+            // LDH (n), A, LDH A,(n)
+            case 0xe0: return eightBitLdhA(true);
+            case 0xf0: return eightBitLdhA(false);
+            
+            
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
@@ -310,6 +328,111 @@ public class CPU {
             registers.setReg(GBRegisters.Reg.A, data);
             return 8;
         }
+    }
+    
+    
+    /**
+     * LD A, (C)
+     * 
+     * put value at address $FF00 + register C into A
+     * Same as: LD A, ($FF00 + C)
+     */ 
+    private int eightBitLDfromAC() {
+        int data = memory.readByte(registers.getReg(GBRegisters.Reg.C) + 0xff00);
+        registers.setReg(GBRegisters.Reg.A, data);
+        return 8;
+    }
+    
+    
+    /**
+     * LD (C), A
+     * 
+     * Put A into address $FF00 + register C
+     * 
+     */ 
+    private int eightBitLDtoAC() {
+        int address = registers.getReg(GBRegisters.Reg.C);
+        int data = registers.getReg(GBRegisters.Reg.A);
+        memory.writeByte(address + 0xff00, data);
+        return 8;
+    }
+    
+    
+    
+    /** LDD A, (HL)
+     * 
+     * Put value at address HL into A, decrement HL
+     * 
+     */ 
+    private int eightBitLDAHl() {
+        int address = registers.getReg(GBRegisters.Reg.HL);
+        registers.setReg(GBRegisters.Reg.A, memory.readByte(address));
+        registers.setReg(GBRegisters.Reg.HL, address - 1);
+        return 8;
+    }
+    
+    
+    /**
+     * LDD (HL), A
+     * Put A into memory address HL, Decrement HL
+     * 
+     */ 
+    private int eightBitStoreHL() {
+        int address = registers.getReg(GBRegisters.Reg.HL);
+        int data = registers.getReg(GBRegisters.Reg.A);
+        
+        memory.writeByte(address, data);
+        registers.setReg(GBRegisters.Reg.HL, address - 1);
+        return 8;
+    }
+    
+    
+    /**
+     * Put value at address HL into A, increment HL
+     * 
+     */ 
+    private int eightBitLDIA() {
+        int address = registers.getReg(GBRegisters.Reg.HL);
+        registers.setReg(GBRegisters.Reg.A, memory.readByte(address));
+        registers.setReg(GBRegisters.Reg.HL, address + 1);
+        return 8;
+    }
+    
+    
+    /**
+     * Put A into memory at address HL. Increment HL
+     * 
+     */ 
+    private int eightBitLDIHLA() {
+        int address = registers.getReg(GBRegisters.Reg.HL);
+        int data = registers.getReg(GBRegisters.Reg.A);
+        
+        memory.writeByte(address, data);
+        registers.setReg(GBRegisters.Reg.HL, address + 1);
+        return 8;
+    }
+    
+    
+    /**
+     * LDH (n), A and LDH A, (n)
+     * 
+     * LDH (n), A - Put A into memory address $FF00 + n
+     * LDH A,(n)  - Put memory address $FF00+n into A
+     * 
+     * @param writeToMem (required) if true LDH (n),A. if false LDH A,(n)
+     * 
+     */ 
+    private int eightBitLdhA(boolean writeToMem) {
+        int offset = memory.readByte(pc);
+        pc++;
+        if (writeToMem) {
+            int data = registers.getReg(GBRegisters.Reg.A);
+            memory.writeByte(0xff00 + offset, data);
+        } else {
+            int data = memory.readByte(0xff00 + offset);
+            registers.setReg(GBRegisters.Reg.A, data);
+        }
+        return 12;   
     }
 }
 
