@@ -167,6 +167,13 @@ public class CPU {
             case 0xe0: return eightBitLdhA(true);
             case 0xf0: return eightBitLdhA(false);
             
+            /*****16 BIT LOADS*****/
+            //LD n, nn
+            case 0x01: return sixteenBitLdNNn(GBRegisters.Reg.BC);
+            case 0x11: return sixteenBitLdNNn(GBRegisters.Reg.DE);
+            case 0x21: return sixteenBitLdNNn(GBRegisters.Reg.HL);
+            case 0x31: return sixteenBitLdNNnSP();
+            
             
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
@@ -427,6 +434,39 @@ public class CPU {
             registers.setReg(GBRegisters.Reg.A, data);
         }
         return 12;   
+    }
+    
+    
+    /**
+     * LD n, nn
+     * 
+     * Put value nn into n
+     * 
+     * nn - 16 Bit immediate value, n = BC, DE, HL
+     * 
+     */ 
+    private int sixteenBitLdNNn(GBRegisters.Reg reg) {
+        // read two byte data from memory LSB first
+        int data = memory.readByte(pc);
+        pc++;
+        data = data | (memory.readByte(pc) << 8);
+        pc++;
+        switch(reg) {
+            case BC: registers.setReg(GBRegisters.Reg.BC, data);
+            case DE: registers.setReg(GBRegisters.Reg.DE, data);
+            case HL: registers.setReg(GBRegisters.Reg.HL, data);
+        }        
+        return 12;
+    }
+    
+    private int sixteenBitLdNNnSP() {
+        int data = memory.readByte(pc);
+        pc++;
+        data = data | (memory.readByte(pc) << 8);
+        pc++;
+        
+        sp = data;
+        return 12;
     }
 }
 
