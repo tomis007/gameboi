@@ -189,6 +189,29 @@ public class CPU {
             case 0xd1: return popNN(GBRegisters.Reg.DE);
             case 0xe1: return popNN(GBRegisters.Reg.HL);
             
+            //ADD A,n
+            case 0x87: return addAN(GBRegisters.Reg.A, false, false);
+            case 0x80: return addAN(GBRegisters.Reg.B, false, false);
+            case 0x81: return addAN(GBRegisters.Reg.C, false, false);
+            case 0x82: return addAN(GBRegisters.Reg.D, false, false);
+            case 0x83: return addAN(GBRegisters.Reg.E, false, false);
+            case 0x84: return addAN(GBRegisters.Reg.H, false, false);
+            case 0x85: return addAN(GBRegisters.Reg.L, false, false);                
+            case 0x86: return addAN(GBRegisters.Reg.HL, false, false);                
+            case 0xc6: return addAN(GBRegisters.Reg.A, false, true);                
+            //ADC A,n
+            case 0x8f: return addAN(GBRegisters.Reg.A, true, false);
+            case 0x88: return addAN(GBRegisters.Reg.B, true, false); 
+            case 0x89: return addAN(GBRegisters.Reg.C, true, false);
+            case 0x8a: return addAN(GBRegisters.Reg.D, true, false);
+            case 0x8b: return addAN(GBRegisters.Reg.E, true, false);
+            case 0x8c: return addAN(GBRegisters.Reg.H, true, false);
+            case 0x8d: return addAN(GBRegisters.Reg.L, true, false);
+            case 0x8e: return addAN(GBRegisters.Reg.HL, true, false);
+            case 0xce: return addAN(GBRegisters.Reg.A, true, true);
+            
+            
+                
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
@@ -574,6 +597,62 @@ public class CPU {
         sp++;
         registers.setReg(dest, data);
         return 12;
+    }
+    
+    
+    /**
+     * ADD A,n
+     * 
+     * Add n to A
+     * 
+     * Flags:
+     * Z - set if result is zero
+     * N - Reset
+     * H - set if carry from bit 3
+     * C - set if carry from bit 7
+     * 
+     * @param src (source to add from)
+     * @param addCarry true if adding carry
+     * @param readMem true if reading immediate value from memory
+     *     if true, src ignored
+     */ 
+    private int addAN(GBRegisters.Reg src, boolean addCarry, boolean readMem) {
+        int cycles;
+        int regA = registers.getReg(GBRegisters.Reg.A);
+        int toAdd;
+        
+        if (readMem) {
+            toAdd = memory.readByte(pc);
+            pc++;
+            cycles = 8;
+        } else if (src == GBRegisters.Reg.HL) {
+            toAdd = memory.readByte(registers.getReg(src));
+            cycles = 8;
+        } else {
+            toAdd = registers.getReg(src);
+            cycles = 4;
+        }
+        toAdd += (addCarry) ? 1 : 0;
+
+        //add
+        registers.setReg(GBRegisters.Reg.A, toAdd + regA);
+        
+        // set Z Flag
+        if (registers.getReg(GBRegisters.Reg.A) == 0) {
+            registers.setZ();
+        }
+        // set N flag
+        registers.resetN();
+        // set H flag
+        if ((regA & 0xf) + (toAdd & 0xf) > 0xf) {
+            registers.setH();
+        }
+        // set C flag
+        if (toAdd + regA > 0xff) {
+            registers.setC();
+        }
+        
+        return cycles;
     }
 }
 
