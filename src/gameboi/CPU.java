@@ -189,6 +189,8 @@ public class CPU {
             case 0xd1: return popNN(GBRegisters.Reg.DE);
             case 0xe1: return popNN(GBRegisters.Reg.HL);
             
+            
+            /******8-BIT ALU*****/
             //ADD A,n
             case 0x87: return addAN(GBRegisters.Reg.A, false, false);
             case 0x80: return addAN(GBRegisters.Reg.B, false, false);
@@ -209,7 +211,26 @@ public class CPU {
             case 0x8d: return addAN(GBRegisters.Reg.L, true, false);
             case 0x8e: return addAN(GBRegisters.Reg.HL, true, false);
             case 0xce: return addAN(GBRegisters.Reg.A, true, true);
-            
+            //SUB n
+            case 0x97: return subAN(GBRegisters.Reg.A, false, false);
+            case 0x90: return subAN(GBRegisters.Reg.B, false, false);
+            case 0x91: return subAN(GBRegisters.Reg.C, false, false);
+            case 0x92: return subAN(GBRegisters.Reg.D, false, false);                   
+            case 0x93: return subAN(GBRegisters.Reg.E, false, false);            
+            case 0x94: return subAN(GBRegisters.Reg.H, false, false);            
+            case 0x95: return subAN(GBRegisters.Reg.L, false, false);            
+            case 0x96: return subAN(GBRegisters.Reg.HL, false, false);
+            case 0xd6: return subAN(GBRegisters.Reg.A, false, true);
+            //SUBC A,n    
+            case 0x9f: return subAN(GBRegisters.Reg.A, true, false); 
+            case 0x98: return subAN(GBRegisters.Reg.B, true, false);
+            case 0x99: return subAN(GBRegisters.Reg.C, true, false);
+            case 0x9a: return subAN(GBRegisters.Reg.D, true, false);
+            case 0x9b: return subAN(GBRegisters.Reg.E, true, false);
+            case 0x9c: return subAN(GBRegisters.Reg.H, true, false);
+            case 0x9d: return subAN(GBRegisters.Reg.L, true, false);
+            case 0x9e: return subAN(GBRegisters.Reg.HL, true, false);
+            case 0xde: return subAN(GBRegisters.Reg.A, true, true);
             
                 
             default:
@@ -641,7 +662,7 @@ public class CPU {
         if (registers.getReg(GBRegisters.Reg.A) == 0) {
             registers.setZ();
         }
-        // set N flag
+        // reset N flag
         registers.resetN();
         // set H flag
         if ((regA & 0xf) + (toAdd & 0xf) > 0xf) {
@@ -649,6 +670,55 @@ public class CPU {
         }
         // set C flag
         if (toAdd + regA > 0xff) {
+            registers.setC();
+        }
+        
+        return cycles;
+    }
+
+    
+    /**
+     * SUB n, SUBC A,n
+     * Subtract N from A
+     * Z- Set if result is zero
+     * N - Set
+     * H - set if no borrow from bit 4
+     * C - set if no borrow
+     * 
+     */ 
+    private int subAN(GBRegisters.Reg src, boolean addCarry, boolean readMem) {
+        int cycles;
+        int regA = registers.getReg(GBRegisters.Reg.A);
+        int toSub;
+        
+        if (readMem) {
+            toSub = memory.readByte(pc);
+            pc++;
+            cycles = 8;
+        } else if (src == GBRegisters.Reg.HL) {
+            toSub = memory.readByte(registers.getReg(src));
+            cycles = 8;
+        } else {
+            toSub = registers.getReg(src);
+            cycles = 4;
+        }
+        toSub += (addCarry) ? 1 : 0;
+
+        //sub
+        registers.setReg(GBRegisters.Reg.A, regA - toSub);
+        
+        // set Z Flag
+        if (registers.getReg(GBRegisters.Reg.A) == 0) {
+            registers.setZ();
+        }
+        // set N flag
+        registers.setN();
+        // set H flag
+        if ((regA & 0xf) - (toSub & 0xf) < 0) {
+            registers.setH();
+        }
+        // set C flag
+        if (regA < toSub) {
             registers.setC();
         }
         
