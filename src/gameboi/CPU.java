@@ -68,7 +68,8 @@ public class CPU {
     private int runInstruction(int opcode) { 
         switch (opcode) {
             case 0x0:  return 4; //NOP
-            
+
+            /*****8 BIT LOADS*****/
             // LD nn,n
             case 0x06: return eightBitLdNnN(GBRegisters.Reg.B);
             case 0x0e: return eightBitLdNnN(GBRegisters.Reg.C);
@@ -76,7 +77,6 @@ public class CPU {
             case 0x1e: return eightBitLdNnN(GBRegisters.Reg.E);
             case 0x26: return eightBitLdNnN(GBRegisters.Reg.H);
             case 0x2e: return eightBitLdNnN(GBRegisters.Reg.L);
-            
             //LD r1,r2
             case 0x7f: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.A);
             case 0x78: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.B);
@@ -136,13 +136,11 @@ public class CPU {
             case 0x75: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.L);
             // special 8 bit load from memory
             case 0x36: return eightBitLoadFromMem();
-            
             // LD A,n
             case 0x0a: return eightBitLdAN(GBRegisters.Reg.BC);
             case 0x1a: return eightBitLdAN(GBRegisters.Reg.DE);
             case 0xfa: return eightBitALoadMem(true);
             case 0x3e: return eightBitALoadMem(false);
-            
             // LD n,A
             case 0x47: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.A);
             case 0x4f: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.A);
@@ -154,17 +152,13 @@ public class CPU {
             case 0x12: return eightBitLdR1R2(GBRegisters.Reg.DE, GBRegisters.Reg.A);
             case 0x77: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.A);
             case 0xea: return eightBitLoadToMem();
-                
-                
             // LD A, (C)
             case 0xf2: return eightBitLDfromAC();
             case 0xe2: return eightBitLDtoAC();
-            
             // LDD A,(HL)
             case 0x3a: return eightBitLDAHl();
             // LDD (HL), A
             case 0x32: return eightBitStoreHL();
-            
             // LDI (HL), A
             case 0x2a: return eightBitLDIA();
             // LDI (HL), A
