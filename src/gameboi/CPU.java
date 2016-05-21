@@ -294,6 +294,20 @@ public class CPU {
             case 0x19: return sixteenBitAdd(GBRegisters.Reg.DE, false);
             case 0x29: return sixteenBitAdd(GBRegisters.Reg.HL, false);
             case 0x39: return sixteenBitAdd(GBRegisters.Reg.BC, true);
+            //ADD SP,n
+            case 0xe8: return addSPN();
+            //INC nn
+            case 0x03: return incNN(GBRegisters.Reg.BC, false);
+            case 0x13: return incNN(GBRegisters.Reg.DE, false);
+            case 0x23: return incNN(GBRegisters.Reg.HL, false);
+            case 0x33: return incNN(GBRegisters.Reg.BC, true);
+            //DEC nn
+            case 0x0B: return decNN(GBRegisters.Reg.BC, false);
+            case 0x1B: return decNN(GBRegisters.Reg.DE, false);
+            case 0x2B: return decNN(GBRegisters.Reg.HL, false);
+            case 0x3B: return decNN(GBRegisters.Reg.BC, true);
+            
+            
             
             
             default:
@@ -625,8 +639,7 @@ public class CPU {
         byte data = (byte)memory.readByte((sp + offset) & 0xffff);
         registers.setReg(GBRegisters.Reg.HL, data);
 
-        registers.resetZ();
-        registers.resetN();
+        registers.resetAll();
         // NOT REALLY SURE HERE, CPU DOCUMENTATION NOT EXACT
         if (((sp + offset) & 0x1f) > 0xf) {
             registers.setH();
@@ -1053,8 +1066,74 @@ public class CPU {
         if ((regVal + toAdd) > 0xffff) {
             registers.setC();
         }
-        
         return 8;
     }
+    
+    
+    /**
+     * ADD SP,n
+     * Add n to sp
+     * 
+     * Flags:
+     * Z, N - Reset
+     * H, C - Set/reset according to operation????
+     */ 
+    private int addSPN() {
+        byte offset = (byte)memory.readByte(pc);
+        pc++;
+        
+        sp += offset;
+        
+        registers.resetAll();
+        if (((sp + offset) & 0x1f) > 0xf) {
+            registers.setH();
+        }
+        if (((sp & 0xffff) + offset) > 0xffff) {
+            registers.setC();
+        }
+        return 16;
+    }
+    
+    
+    /**
+     * INC nn
+     * 
+     * Increment register nn
+     * 
+     * Affects NO FLAGS
+     * 
+     * @param reg register to increment (ignored if incSP is true)
+     * @param incSP boolean if true, ignore reg and increment sp
+     */ 
+    private int incNN(GBRegisters.Reg reg, boolean incSP) {
+        if (incSP) {
+            sp++;
+        } else {
+            int value = registers.getReg(reg);
+            registers.setReg(reg, value + 1);
+        }
+        return 8;
+    }
+    
+    /**
+     * DEC nn
+     * 
+     * Decrement register nn
+     * 
+     * no flags affected
+     * 
+     * @param reg register to increment (ignored if incSP is true)
+     * @param decSP boolean if true, ignore reg and increment sp
+     */
+    private int decNN(GBRegisters.Reg reg, boolean decSP) {
+        if (decSP) {
+            sp--;
+        } else {
+            int value = registers.getReg(reg);
+            registers.setReg(reg, value - 1);
+        }    
+        return 8;
+    }
+    
 }
 
