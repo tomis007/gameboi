@@ -289,6 +289,11 @@ public class CPU {
             case 0x25: return decN(GBRegisters.Reg.H);            
             case 0x2d: return decN(GBRegisters.Reg.L);
             case 0x35: return decN(GBRegisters.Reg.HL);            
+            //ADD HL,n
+            case 0x09: return sixteenBitAdd(GBRegisters.Reg.BC, false);
+            case 0x19: return sixteenBitAdd(GBRegisters.Reg.DE, false);
+            case 0x29: return sixteenBitAdd(GBRegisters.Reg.HL, false);
+            case 0x39: return sixteenBitAdd(GBRegisters.Reg.BC, true);
             
             
             default:
