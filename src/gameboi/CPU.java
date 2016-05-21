@@ -343,9 +343,17 @@ public class CPU {
             case 0xf3:
             case 0xfb: System.err.println("TODO!!!!");
                        System.exit(1);
+    
+            //calls
+            case 0xcd: return call();
+            case 0xc4: return callC(opcode);
+            case 0xcc: return callC(opcode);
+            case 0xd4: return callC(opcode);
+            case 0xdc: return callC(opcode);
             
+            //RETURNs
+            case 0xc9: return ret(opcode);
             
-                       
                        
                        
             //TODO SHIFTS/ROTATES, BIT OPCODES           
@@ -1421,6 +1429,75 @@ public class CPU {
                 break;
         }
         return 8;
+    }
+    
+    
+    /**
+     * Call nn
+     * 
+     * push address of next instruction onto stack and jump to address 
+     * nn
+     * 
+     */ 
+    private int call() {
+        int address = memory.readByte(pc);
+        pc++;
+        address = address | (memory.readByte(pc) << 8);
+        pc++;
+        pushWordToStack(pc);
+        pc = address;
+        return 12;   
+    }
+    
+    /**
+     * CALL cc,nn
+     * 
+     * Call address n if following condition is true
+     * Z flag set /reset
+     * C flag set/reset
+     * @param opcode opcode to check for condition
+     */ 
+    private int callC(int opcode) {
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        
+        switch(opcode) {
+            case 0xcc:
+                if ((flags & 0x80) == 0x80) {
+                    return call();
+                }   
+            case 0xc4:
+                if ((flags & 0x80) == 0x0) {
+                    return call();
+                }   
+            case 0xdc:
+                if ((flags & 0x10) == 0x10) {
+                    return call();
+                }   
+            case 0xd4:
+                if ((flags & 0x10) == 0x0) {
+                    return call();
+                }   
+            default:
+                break;
+        }
+        return 12;
+    }
+    
+    private int ret(int opcode) {
+        
+        
+        
+        return 8;
+    }
+    
+    /**
+     * Pushes a 16 bit word to the stack
+     */ 
+    private void pushWordToStack(int word) {
+        sp--;
+        memory.writeByte(sp, (word & 0xff00) >> 8);
+        sp--;
+        memory.writeByte(sp, word & 0xff);
     }
 }
 
