@@ -178,6 +178,13 @@ public class GBRegisters {
         f = 0x0;
     }
     
+    /**
+     * Toggle carry flag
+     */ 
+    public void toggleC() {
+        f ^= 1 << 0x10;
+    }
+    
     
     
     /**
