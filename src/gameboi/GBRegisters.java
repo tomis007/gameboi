@@ -170,8 +170,13 @@ public class GBRegisters {
         f &= 0xb0;
     }
     
-    
-    
+    /**
+     * Reset all Flags
+     * 
+     */ 
+    public void resetAll() {
+        f = 0x0;
+    }
     
     
     
