@@ -271,7 +271,25 @@ public class CPU {
             case 0xbd: return cpN(GBRegisters.Reg.L, false);    
             case 0xbe: return cpN(GBRegisters.Reg.HL, false);    
             case 0xfe: return cpN(GBRegisters.Reg.A, false);
-                
+            // INC n
+            case 0x3c: return incN(GBRegisters.Reg.A);
+            case 0x04: return incN(GBRegisters.Reg.B);    
+            case 0x0c: return incN(GBRegisters.Reg.C);
+            case 0x14: return incN(GBRegisters.Reg.D);            
+            case 0x1c: return incN(GBRegisters.Reg.E);
+            case 0x24: return incN(GBRegisters.Reg.H);            
+            case 0x2c: return incN(GBRegisters.Reg.L);            
+            case 0x34: return incN(GBRegisters.Reg.HL);
+            // DEC n
+            case 0x3d: return decN(GBRegisters.Reg.A);
+            case 0x05: return decN(GBRegisters.Reg.B);
+            case 0x0d: return decN(GBRegisters.Reg.C);            
+            case 0x15: return decN(GBRegisters.Reg.D);            
+            case 0x1d: return decN(GBRegisters.Reg.E);
+            case 0x25: return decN(GBRegisters.Reg.H);            
+            case 0x2d: return decN(GBRegisters.Reg.L);
+            case 0x35: return decN(GBRegisters.Reg.HL);            
+            
             
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
@@ -698,17 +716,14 @@ public class CPU {
         //add
         registers.setReg(GBRegisters.Reg.A, toAdd + regA);
         
-        // set Z Flag
+        //flags
         if (registers.getReg(GBRegisters.Reg.A) == 0) {
             registers.setZ();
         }
-        // reset N flag
         registers.resetN();
-        // set H flag
         if ((regA & 0xf) + (toAdd & 0xf) > 0xf) {
             registers.setH();
         }
-        // set C flag
         if (toAdd + regA > 0xff) {
             registers.setC();
         }
@@ -931,10 +946,67 @@ public class CPU {
         if (regA < data) {
             registers.setC();
         }
-
         return cycles;
     }
     
+
+    /**
+     * INC n
+     * 
+     * Increment register n.
+     * 
+     * FLAGS:
+     * Z - Set if result is 0
+     * N - Reset
+     * H - Set if carry from bit 3
+     * C - Not affected
+     * @param src (required) register to increment
+     */ 
+    private int incN(GBRegisters.Reg src) {
+        int reg = registers.getReg(src);
+
+        registers.setReg(src, reg + 1);
+        
+        
+        if (registers.getReg(src) == 0) {
+            registers.setZ();
+        }
+        registers.resetN();
+        if (((reg & 0xf) + 1) > 0xf) {
+            registers.setH();
+        }
+        
+        return (src == GBRegisters.Reg.HL) ? 12 : 4;
+    }
+    
+    /**
+     * DEC n
+     * 
+     * Decrement register n.
+     * 
+     * FLAGS:
+     * Z - Set if result is 0
+     * N - Set
+     * H - Set if no borrow from bit 4
+     * C - Not affected
+     * @param src (required) register to decrement
+     */ 
+    private int decN(GBRegisters.Reg src) {
+        int reg = registers.getReg(src);
+
+        registers.setReg(src, reg - 1);
+        
+        
+        if (registers.getReg(src) == 0) {
+            registers.setZ();
+        }
+        registers.setN();
+        if (((reg & 0xf) - 1) < 0) {
+            registers.setH();
+        }
+        
+        return (src == GBRegisters.Reg.HL) ? 12 : 4;
+    }
     
 }
 
