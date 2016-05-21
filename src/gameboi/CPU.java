@@ -326,6 +326,16 @@ public class CPU {
             case 0xca: return jumpC(opcode);
             case 0xd2: return jumpC(opcode);
             case 0xda: return jumpC(opcode);
+            // JP (HL)
+            case 0xe9: return jumpHL();
+            //JR n
+            case 0x18: return jumpN();
+            //JR cc, n
+            case 0x20: return jumpC(opcode);
+            case 0x28: return jumpC(opcode);
+            case 0x30: return jumpC(opcode);
+            case 0x38: return jumpC(opcode);
+            
             
             //TODO HALT,STOP, EI,DI
             case 0x76:
@@ -1333,25 +1343,84 @@ public class CPU {
         address = address | (memory.readByte(pc) << 8);
         pc++;
         
-        if (opcode == 0xca) {
-            if ((flags & 0x80) == 0x80) {
-                pc = address;
-            }
-        } else if (opcode == 0xc2) {
-            if ((flags & 0x80) == 0x0) {
-                pc = address;
-            }
-        } else if (opcode == 0xda) {
-            if ((flags & 0x10) == 0x10) {
-                pc = address;
-            }
-        } else if (opcode == 0xd2) {
-            if ((flags & 0x10) == 0x0) {
-                pc = address;
-            }
+        switch (opcode) {
+            case 0xca:
+                if ((flags & 0x80) == 0x80) {
+                    pc = address;
+                }   break;
+            case 0xc2:
+                if ((flags & 0x80) == 0x0) {
+                    pc = address;
+                }   break;
+            case 0xda:
+                if ((flags & 0x10) == 0x10) {
+                    pc = address;
+                }   break;
+            case 0xd2:
+                if ((flags & 0x10) == 0x0) {
+                    pc = address;
+                }   break;
+            default:
+                break;
         }
-        
         return 12;
+    }
+    
+    /**
+     * JP (HL)
+     * 
+     * Jump to address contained in HL
+     */ 
+    private int jumpHL() {
+        pc = registers.getReg(GBRegisters.Reg.HL);
+        return 4;
+    }
+    
+    /**
+     * JR n
+     * 
+     * add n to current address and jump to it
+     */ 
+    private int jumpN() {
+        pc += (1 +  (byte)memory.readByte(pc));
+        return 8;
+    }
+
+    
+    
+    /**
+     * JR cc,n
+     * 
+     * Conditional Jump with immediate offset
+     * 
+     * @param opcode (required) opcode for jump condition
+     */ 
+    private int jumpCN(int opcode) {
+        int flags = registers.getReg(GBRegisters.Reg.A);
+        byte offset = (byte)memory.readByte(pc);
+        pc++;
+        
+        switch (opcode) {
+            case 0x28:
+                if ((flags & 0x80) == 0x80) {
+                    pc += offset;
+                }   break;
+            case 0x20:
+                if ((flags & 0x80) == 0x0) {
+                    pc += offset;
+                }   break;
+            case 0x38:
+                if ((flags & 0x10) == 0x10) {
+                    pc += offset;
+                }   break;
+            case 0x30:
+                if ((flags & 0x10) == 0x0) {
+                    pc += offset;
+                }   break;
+            default:
+                break;
+        }
+        return 8;
     }
 }
 
