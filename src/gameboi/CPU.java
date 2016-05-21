@@ -306,9 +306,17 @@ public class CPU {
             case 0x1B: return decNN(GBRegisters.Reg.DE, false);
             case 0x2B: return decNN(GBRegisters.Reg.HL, false);
             case 0x3B: return decNN(GBRegisters.Reg.BC, true);
-            
+
+            // extended
             case 0xcb: return extendedOpcode();
-            
+            // DAA, PROBABLY NOT CORRECT
+            case 0x27: return decAdjust();
+            //CPL
+            case 0x2f: return cplRegA();
+            //CCF
+            case 0x3f: return ccf();
+            //SCF
+            case 0x37: return scf();
             
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
@@ -1201,6 +1209,83 @@ public class CPU {
     }
     
     
+    /**
+     * Decimal adjust register A
+     * 
+     * MIGHT NOT BE CORRECT...instructions vague 
+     * 
+     * Flags:
+     * z - Set if A is zero
+     * N - Not affected
+     * H - reset
+     * C - set or reset according to operation
+     */ 
+    private int decAdjust() {
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        int reg = registers.getReg(GBRegisters.Reg.A);
+        registers.resetC();
+        
+        
+        if (((flags & 0x20) == 0x20) || ((reg & 0xf) > 0x9)) {
+            reg += 0x6;
+            registers.setC(); //?????
+        }
+        
+        if (((flags & 0x10) == 0x10) || ((reg & 0xf0) >> 4) > 0x9) {
+            reg += 0x60;
+        }
+        
+        registers.setReg(GBRegisters.Reg.A, reg);
+        
+        registers.resetZ();
+        if (reg == 0) {
+            registers.setZ();
+        }
+        registers.resetH();
+        
+        return 4;
+    }    
     
+    /**
+     * Complement register A
+     * 
+     * (toggles all bits)
+     */ 
+    private int cplRegA() {
+        int reg = registers.getReg(GBRegisters.Reg.A);
+        reg = ~reg;
+        
+        registers.setReg(GBRegisters.Reg.A, reg & 0xffff);
+        return 4;
+    }
+    
+    /**
+     * Complement carry flag
+     * 
+     * FLAGS:
+     * Z - not affected
+     * H, N - reset
+     * C - Complemented
+     */ 
+    private int ccf() {
+        registers.toggleC();
+        registers.resetN();
+        registers.resetH();
+        return 4;
+    }    
+    
+    /** 
+     * Set carry flag
+     * Flags:
+     * Z - Not affected
+     * N,H - reset
+     * C - Set
+     */ 
+    private int scf() {
+        registers.resetH();
+        registers.resetN();
+        registers.setC();
+        return 4;
+    }
 }
 
