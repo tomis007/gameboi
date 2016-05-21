@@ -251,6 +251,27 @@ public class CPU {
             case 0xb5: return orN(GBRegisters.Reg.L, false);            
             case 0xb6: return orN(GBRegisters.Reg.HL, false);
             case 0xf6: return orN(GBRegisters.Reg.A, true);         
+            // XOR n
+            case 0xaf: return xorN(GBRegisters.Reg.A, false);
+            case 0xa8: return xorN(GBRegisters.Reg.B, false);            
+            case 0xa9: return xorN(GBRegisters.Reg.C, false);
+            case 0xaa: return xorN(GBRegisters.Reg.D, false);
+            case 0xab: return xorN(GBRegisters.Reg.E, false);
+            case 0xac: return xorN(GBRegisters.Reg.H, false);
+            case 0xad: return xorN(GBRegisters.Reg.L, false);
+            case 0xae: return xorN(GBRegisters.Reg.HL, false);
+            case 0xee: return xorN(GBRegisters.Reg.A, true);
+            // CP n
+            case 0xbf: return cpN(GBRegisters.Reg.A, false);
+            case 0xb8: return cpN(GBRegisters.Reg.B, false);
+            case 0xb9: return cpN(GBRegisters.Reg.C, false);
+            case 0xba: return cpN(GBRegisters.Reg.D, false);
+            case 0xbb: return cpN(GBRegisters.Reg.E, false);    
+            case 0xbc: return cpN(GBRegisters.Reg.H, false);
+            case 0xbd: return cpN(GBRegisters.Reg.L, false);    
+            case 0xbe: return cpN(GBRegisters.Reg.HL, false);    
+            case 0xfe: return cpN(GBRegisters.Reg.A, false);
+                
             
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
@@ -726,17 +747,13 @@ public class CPU {
         //sub
         registers.setReg(GBRegisters.Reg.A, regA - toSub);
         
-        // set Z Flag
         if (registers.getReg(GBRegisters.Reg.A) == 0) {
             registers.setZ();
         }
-        // set N flag
         registers.setN();
-        // set H flag
         if ((regA & 0xf) - (toSub & 0xf) < 0) {
             registers.setH();
         }
-        // set C flag
         if (regA < toSub) {
             registers.setC();
         }
@@ -827,7 +844,96 @@ public class CPU {
         return cycles;
     }
 
+    /**
+     * XOR n
+     * 
+     * Logical XOR n, with A, result in A
+     * 
+     * FLAGS
+     * Z - set if result is 0
+     * N, H, C = Reset
+     * @param src (required) src register
+     * @param readMem (required) true if reading immediate value from
+     *     memory (if true src ignored)
+     * @return clock cycles taken
+     */ 
+    private int xorN(GBRegisters.Reg src, boolean readMem) {
+        int cycles;
+        int data;
+        
+        if (readMem) {
+            data = memory.readByte(pc);
+            pc++;
+            cycles = 8;
+        } else if (src == GBRegisters.Reg.HL) {
+            data = registers.getReg(src);
+            cycles = 8;
+        } else {
+            data = registers.getReg(src);
+            cycles = 4;
+        }
+        
+        int regA = registers.getReg(GBRegisters.Reg.A);
+        registers.setReg(GBRegisters.Reg.A, data ^ regA);
+        
+        if ((data ^ regA) == 0) {
+            registers.setZ();
+        }    
+        registers.resetN();
+        registers.resetH();
+        registers.resetC();
+        
+        return cycles;
+    }
     
+    /**
+     * CP n
+     * 
+     * Compare A with n. Basically A - n subtraction but 
+     * results are thrown away
+     * 
+     * FLAGS
+     * Z - set if result is 0 (if A == n)
+     * N - set
+     * H - Set if no borrow from bit 4
+     * C = set if no morrow (Set if A is less than n)
+     * 
+     * @param src (required) src register
+     * @param readMem (required) true if reading immediate value from
+     *     memory (if true src ignored)
+     * @return clock cycles taken
+     */ 
+    private int cpN(GBRegisters.Reg src, boolean readMem) {
+        int cycles;
+        int data;
+        
+        if (readMem) {
+            data = memory.readByte(pc);
+            pc++;
+            cycles = 8;
+        } else if (src == GBRegisters.Reg.HL) {
+            data = registers.getReg(src);
+            cycles = 8;
+        } else {
+            data = registers.getReg(src);
+            cycles = 4;
+        }
+
+        int regA = registers.getReg(GBRegisters.Reg.A);
+
+        if (regA == data) {
+            registers.setZ();
+        }
+        registers.setN();
+        if ((regA & 0xf) - (data & 0xf) < 0) {
+            registers.setH();
+        }
+        if (regA < data) {
+            registers.setC();
+        }
+
+        return cycles;
+    }
     
     
 }
