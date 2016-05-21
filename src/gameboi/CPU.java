@@ -307,7 +307,7 @@ public class CPU {
             case 0x2B: return decNN(GBRegisters.Reg.HL, false);
             case 0x3B: return decNN(GBRegisters.Reg.BC, true);
             
-            
+            case 0xcb: return extendedOpcode();
             
             
             default:
@@ -315,6 +315,32 @@ public class CPU {
                         Integer.toHexString(opcode));
                 System.exit(1);
         }    
+        return 0;
+    }
+    
+    
+    
+    private int extendedOpcode() {
+        int opcode = memory.readByte(pc);
+        pc++;        
+        
+        switch(opcode) {
+            //SWAP N
+            case 0x37: return swapN(GBRegisters.Reg.A);
+            case 0x30: return swapN(GBRegisters.Reg.B);
+            case 0x31: return swapN(GBRegisters.Reg.C);
+            case 0x32: return swapN(GBRegisters.Reg.D);
+            case 0x33: return swapN(GBRegisters.Reg.E);
+            case 0x34: return swapN(GBRegisters.Reg.H);
+            case 0x35: return swapN(GBRegisters.Reg.L);
+            case 0x36: return swapN(GBRegisters.Reg.HL);
+
+           
+            default:
+                System.err.println("Unimplemented opcode: 0x" + 
+                        Integer.toHexString(opcode));
+                System.exit(1);
+        }
         return 0;
     }
     
@@ -1134,6 +1160,47 @@ public class CPU {
         }    
         return 8;
     }
+    
+    /**
+     * Swap N
+     * 
+     * swap upper and lower nibbles of n
+     * 
+     * Flags Affected: 
+     * Z - set if result is 0
+     * NHC - reset
+     * 
+     * @param reg (required) register to swap
+     */ 
+    private int swapN(GBRegisters.Reg reg) {
+        int data = registers.getReg(reg);
+        
+        registers.resetAll();
+        if (reg == GBRegisters.Reg.HL) {
+            int lowNib = data & 0xf;
+            int highNib = (data & 0xf000) >> 12;
+            int midByte = (data & 0x0ff0) >> 4;
+            
+            data = (lowNib << 12) | (midByte << 4) | highNib;
+            registers.setReg(reg, data);
+            
+            if (data == 0) {
+                registers.setZ();
+            }
+            return 16;
+        } else {
+            int lowNib = data & 0xf;
+            int highNib = (data & 0xf0) >> 4;
+            registers.setReg(reg, highNib | (lowNib << 4));
+            
+            if ((highNib | (lowNib << 4)) == 0) {
+                registers.setZ();
+            }
+            return 8;
+        }
+    }
+    
+    
     
 }
 
