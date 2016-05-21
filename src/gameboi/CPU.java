@@ -717,10 +717,10 @@ public class CPU {
         registers.setReg(GBRegisters.Reg.A, toAdd + regA);
         
         //flags
+        registers.resetAll();
         if (registers.getReg(GBRegisters.Reg.A) == 0) {
             registers.setZ();
         }
-        registers.resetN();
         if ((regA & 0xf) + (toAdd & 0xf) > 0xf) {
             registers.setH();
         }
@@ -758,10 +758,11 @@ public class CPU {
             cycles = 4;
         }
         toSub += (addCarry) ? 1 : 0;
-
         //sub
         registers.setReg(GBRegisters.Reg.A, regA - toSub);
-        
+
+        //flags
+        registers.resetAll();
         if (registers.getReg(GBRegisters.Reg.A) == 0) {
             registers.setZ();
         }
@@ -807,12 +808,11 @@ public class CPU {
         int regA = registers.getReg(GBRegisters.Reg.A);
         registers.setReg(GBRegisters.Reg.A, data & regA);
         
+        registers.resetAll();
         if ((data & regA) == 0) {
             registers.setZ();
         }    
-        registers.resetN();
         registers.setH();
-        registers.resetC();
         
         return cycles;
     }
@@ -848,13 +848,11 @@ public class CPU {
         
         int regA = registers.getReg(GBRegisters.Reg.A);
         registers.setReg(GBRegisters.Reg.A, data | regA);
-        
+
+        registers.resetAll();
         if ((data | regA) == 0) {
             registers.setZ();
         }    
-        registers.resetN();
-        registers.resetH();
-        registers.resetC();
         
         return cycles;
     }
@@ -891,12 +889,10 @@ public class CPU {
         int regA = registers.getReg(GBRegisters.Reg.A);
         registers.setReg(GBRegisters.Reg.A, data ^ regA);
         
+        registers.resetAll();
         if ((data ^ regA) == 0) {
             registers.setZ();
         }    
-        registers.resetN();
-        registers.resetH();
-        registers.resetC();
         
         return cycles;
     }
@@ -936,6 +932,7 @@ public class CPU {
 
         int regA = registers.getReg(GBRegisters.Reg.A);
 
+        registers.resetAll();
         if (regA == data) {
             registers.setZ();
         }
@@ -964,14 +961,15 @@ public class CPU {
      */ 
     private int incN(GBRegisters.Reg src) {
         int reg = registers.getReg(src);
-
         registers.setReg(src, reg + 1);
         
         
+        registers.resetZ();
         if (registers.getReg(src) == 0) {
             registers.setZ();
         }
         registers.resetN();
+        registers.resetH();
         if (((reg & 0xf) + 1) > 0xf) {
             registers.setH();
         }
@@ -993,14 +991,14 @@ public class CPU {
      */ 
     private int decN(GBRegisters.Reg src) {
         int reg = registers.getReg(src);
-
         registers.setReg(src, reg - 1);
         
-        
+        registers.resetZ();
         if (registers.getReg(src) == 0) {
             registers.setZ();
         }
         registers.setN();
+        registers.resetH();
         if (((reg & 0xf) - 1) < 0) {
             registers.setH();
         }
@@ -1008,5 +1006,50 @@ public class CPU {
         return (src == GBRegisters.Reg.HL) ? 12 : 4;
     }
     
+    
+    
+    /**
+     * ADD HL,n
+     * 
+     * Add n to HL
+     * 
+     * n = BC,DE,HL,SP
+     * 
+     * Flags
+     * Z - Not affected
+     * N - Reset
+     * H - Set if carry from bit 11
+     * C - Set if carry from bit 15
+     * 
+     * @param src source register to add
+     * @param addSP boolean (if true, adds stackpointer instead of register
+     *     to HL, ignores src)
+     * @return clock cycles taken
+     */ 
+    private int sixteenBitAdd(GBRegisters.Reg src, boolean addSP) {
+        int toAdd;
+        int regVal = registers.getReg(GBRegisters.Reg.HL);
+        
+        if (addSP) {
+            toAdd = sp;
+        } else {
+            toAdd = registers.getReg(src);
+        }
+        
+        registers.setReg(GBRegisters.Reg.HL, regVal + toAdd);
+        
+        //flags
+        registers.resetN();
+        registers.resetH();
+        if ((regVal & 0xfff) + (toAdd & 0xfff) > 0xfff) {
+            registers.setH();
+        }
+        registers.resetC();
+        if ((regVal + toAdd) > 0xffff) {
+            registers.setC();
+        }
+        
+        return 8;
+    }
 }
 
