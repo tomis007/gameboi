@@ -231,8 +231,27 @@ public class CPU {
             case 0x9d: return subAN(GBRegisters.Reg.L, true, false);
             case 0x9e: return subAN(GBRegisters.Reg.HL, true, false);
             case 0xde: return subAN(GBRegisters.Reg.A, true, true);
+            //AND N
+            case 0xa7: return andN(GBRegisters.Reg.A, false);
+            case 0xa0: return andN(GBRegisters.Reg.B, false);
+            case 0xa1: return andN(GBRegisters.Reg.C, false);
+            case 0xa2: return andN(GBRegisters.Reg.D, false);
+            case 0xa3: return andN(GBRegisters.Reg.E, false);
+            case 0xa4: return andN(GBRegisters.Reg.H, false);
+            case 0xa5: return andN(GBRegisters.Reg.L, false);
+            case 0xa6: return andN(GBRegisters.Reg.HL, false);
+            case 0xe6: return andN(GBRegisters.Reg.A, true);
+            //OR N
+            case 0xb7: return orN(GBRegisters.Reg.A, false);
+            case 0xb0: return orN(GBRegisters.Reg.B, false);            
+            case 0xb1: return orN(GBRegisters.Reg.C, false);
+            case 0xb2: return orN(GBRegisters.Reg.D, false);            
+            case 0xb3: return orN(GBRegisters.Reg.E, false);
+            case 0xb4: return orN(GBRegisters.Reg.H, false);            
+            case 0xb5: return orN(GBRegisters.Reg.L, false);            
+            case 0xb6: return orN(GBRegisters.Reg.HL, false);
+            case 0xf6: return orN(GBRegisters.Reg.A, true);         
             
-                
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
@@ -721,8 +740,95 @@ public class CPU {
         if (regA < toSub) {
             registers.setC();
         }
+        return cycles;
+    }
+    
+    /**
+     * And N with A, result in A
+     * 
+     * FLAGS:
+     * Z - Set if result is 0
+     * N - Reset
+     * H - Set
+     * C - Reset
+     * 
+     * @param src (required) N to and
+     * @param readMem (required) true if reading immediate value from
+     *     memory (if true, src is ignored)
+     */ 
+    private int andN(GBRegisters.Reg src, boolean readMem) {
+        int cycles;
+        int data;
+        
+        if (readMem) {
+            data = memory.readByte(pc);
+            pc++;
+            cycles = 8;
+        } else if (src == GBRegisters.Reg.HL) {
+            data = registers.getReg(src);
+            cycles = 8;
+        } else {
+            data = registers.getReg(src);
+            cycles = 4;
+        }
+        
+        int regA = registers.getReg(GBRegisters.Reg.A);
+        registers.setReg(GBRegisters.Reg.A, data & regA);
+        
+        if ((data & regA) == 0) {
+            registers.setZ();
+        }    
+        registers.resetN();
+        registers.setH();
+        registers.resetC();
         
         return cycles;
     }
+    
+    /**
+     * OR N with A, result in A
+     * 
+     * FLAGS:
+     * Z - Set if result is 0
+     * N - Reset
+     * H - Reset
+     * C - Reset
+     * 
+     * @param src (required) N to and
+     * @param readMem (required) true if reading immediate value from
+     *     memory (if true, src is ignored)
+     */ 
+    private int orN(GBRegisters.Reg src, boolean readMem) {
+        int cycles;
+        int data;
+        
+        if (readMem) {
+            data = memory.readByte(pc);
+            pc++;
+            cycles = 8;
+        } else if (src == GBRegisters.Reg.HL) {
+            data = registers.getReg(src);
+            cycles = 8;
+        } else {
+            data = registers.getReg(src);
+            cycles = 4;
+        }
+        
+        int regA = registers.getReg(GBRegisters.Reg.A);
+        registers.setReg(GBRegisters.Reg.A, data | regA);
+        
+        if ((data | regA) == 0) {
+            registers.setZ();
+        }    
+        registers.resetN();
+        registers.resetH();
+        registers.resetC();
+        
+        return cycles;
+    }
+
+    
+    
+    
 }
 
