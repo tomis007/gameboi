@@ -318,6 +318,27 @@ public class CPU {
             //SCF
             case 0x37: return scf();
             
+            
+            //Jumps
+            case 0xc3: return jump();
+            // conditional jump
+            case 0xc2: return jumpC(opcode);
+            case 0xca: return jumpC(opcode);
+            case 0xd2: return jumpC(opcode);
+            case 0xda: return jumpC(opcode);
+            
+            //TODO HALT,STOP, EI,DI
+            case 0x76:
+            case 0x10:
+            case 0xf3:
+            case 0xfb: System.err.println("TODO!!!!");
+                       System.exit(1);
+            
+            
+                       
+                       
+                       
+            //TODO SHIFTS/ROTATES, BIT OPCODES           
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
@@ -1286,6 +1307,51 @@ public class CPU {
         registers.resetN();
         registers.setC();
         return 4;
+    }
+    
+    
+    /**
+     * Jump to address
+     * 
+     */ 
+    private int jump() {
+        int address = memory.readByte(pc);
+        pc++;
+        address = address | (memory.readByte(pc) << 8);
+        pc = address;
+        return 12;
+    }
+    
+    /**
+     * Conditional jump
+     * 
+     */ 
+    private int jumpC(int opcode) {
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        int address = memory.readByte(pc);
+        pc++;
+        address = address | (memory.readByte(pc) << 8);
+        pc++;
+        
+        if (opcode == 0xca) {
+            if ((flags & 0x80) == 0x80) {
+                pc = address;
+            }
+        } else if (opcode == 0xc2) {
+            if ((flags & 0x80) == 0x0) {
+                pc = address;
+            }
+        } else if (opcode == 0xda) {
+            if ((flags & 0x10) == 0x10) {
+                pc = address;
+            }
+        } else if (opcode == 0xd2) {
+            if ((flags & 0x10) == 0x0) {
+                pc = address;
+            }
+        }
+        
+        return 12;
     }
 }
 
