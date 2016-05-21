@@ -1,7 +1,5 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ *  Gameboi
  */
 package gameboi;
 
@@ -351,10 +349,26 @@ public class CPU {
             case 0xd4: return callC(opcode);
             case 0xdc: return callC(opcode);
             
-            //RETURNs
-            case 0xc9: return ret(opcode);
+            //restarts
+            case 0xc7: return restart(0x00);
+            case 0xcf: return restart(0x08);
+            case 0xd7: return restart(0x10);
+            case 0xdf: return restart(0x18);
+            case 0xe7: return restart(0x20);
+            case 0xef: return restart(0x28);
+            case 0xf7: return restart(0x30);
+            case 0xff: return restart(0x38);            
             
-                       
+            
+            //RETURNs
+            case 0xc9: return ret();
+            case 0xc0: return retC(opcode);
+            case 0xc8: return retC(opcode);
+            case 0xd0: return retC(opcode);
+            case 0xd8: return retC(opcode);
+            //TODO RETI
+            case 0xd9: System.err.println("Unimplemented RETI");
+                       System.exit(1);
                        
             //TODO SHIFTS/ROTATES, BIT OPCODES           
             default:
@@ -1355,19 +1369,23 @@ public class CPU {
             case 0xca:
                 if ((flags & 0x80) == 0x80) {
                     pc = address;
-                }   break;
+                }  
+                break;
             case 0xc2:
                 if ((flags & 0x80) == 0x0) {
                     pc = address;
-                }   break;
+                }  
+                break;
             case 0xda:
                 if ((flags & 0x10) == 0x10) {
                     pc = address;
-                }   break;
+                }  
+                break;
             case 0xd2:
                 if ((flags & 0x10) == 0x0) {
                     pc = address;
-                }   break;
+                }  
+                break;
             default:
                 break;
         }
@@ -1412,19 +1430,23 @@ public class CPU {
             case 0x28:
                 if ((flags & 0x80) == 0x80) {
                     pc += offset;
-                }   break;
+                }   
+                break;
             case 0x20:
                 if ((flags & 0x80) == 0x0) {
                     pc += offset;
-                }   break;
+                }  
+                break;
             case 0x38:
                 if ((flags & 0x10) == 0x10) {
                     pc += offset;
-                }   break;
+                }  
+                break;
             case 0x30:
                 if ((flags & 0x10) == 0x0) {
                     pc += offset;
-                }   break;
+                }  
+                break;
             default:
                 break;
         }
@@ -1465,33 +1487,42 @@ public class CPU {
                 if ((flags & 0x80) == 0x80) {
                     return call();
                 }   
+                break;
             case 0xc4:
                 if ((flags & 0x80) == 0x0) {
                     return call();
                 }   
+                break;
             case 0xdc:
                 if ((flags & 0x10) == 0x10) {
                     return call();
                 }   
+                break;
             case 0xd4:
                 if ((flags & 0x10) == 0x0) {
                     return call();
                 }   
+                break;
             default:
                 break;
         }
         return 12;
     }
     
-    private int ret(int opcode) {
-        
-        
-        
+    
+    /**
+     * RET
+     * 
+     * pop two bytes from stack and jump to that address
+     */ 
+    private int ret() {
+        pc = popWordFromStack();
         return 8;
     }
     
     /**
      * Pushes a 16 bit word to the stack
+     * MSB pushed first
      */ 
     private void pushWordToStack(int word) {
         sp--;
@@ -1499,5 +1530,70 @@ public class CPU {
         sp--;
         memory.writeByte(sp, word & 0xff);
     }
+
+
+    /**
+     * Pop a 16bit word off the stack
+     * 
+     * LSB is first
+     */ 
+    private int popWordFromStack() {
+        int word = memory.readByte(sp);
+        sp++;
+        word = word | (memory.readByte(sp) << 8);
+        sp++;
+        
+        return word;
+    }
+    
+    /**
+     * RST n
+     * 
+     * Push present address onto stack, jump to address 0x0000 +n
+     * 
+     */ 
+    private int restart(int offset) {
+        pushWordToStack(pc);
+        pc = offset;
+        return 32;
+    }
+    
+
+    /**
+     * RET C
+     * 
+     * Return if following condition is true
+     * 
+     */ 
+    private int retC(int opcode) {
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        
+        switch(opcode) {
+            case 0xc8:
+                if ((flags & 0x80) == 0x80) {
+                    return ret();
+                } 
+                break;
+            case 0xc0:
+                if ((flags & 0x80) == 0x0) {
+                    return ret();
+                } 
+                break;
+            case 0xd8:
+                if ((flags & 0x10) == 0x10) {
+                    return ret();
+                }   
+                break;
+            case 0xd0:
+                if ((flags & 0x10) == 0x0) {
+                    return ret();
+                }   
+                break;
+            default:
+                break;
+        }
+        return 8;
+    }
+    
 }
 
