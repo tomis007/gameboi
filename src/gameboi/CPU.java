@@ -48,6 +48,7 @@ public class CPU {
         
         int opcode = memory.readByte(pc);
         pc++;
+        System.out.println("Executing opcode: 0x" + Integer.toHexString(opcode));
         return runInstruction(opcode);
     }
     
@@ -370,12 +371,21 @@ public class CPU {
             case 0xd9: System.err.println("Unimplemented RETI");
                        System.exit(1);
                        
-            //TODO SHIFTS/ROTATES, BIT OPCODES           
+            //ROTATES AND SHIFTS
+            //RLCA
+            case 0x07: return rlcA();
+            //RLA
+            case 0x17: return rlA();      
+            //RRCA
+            case 0x0f: return rrcA();
+            case 0x1f: return rrA();
+                       
+                       
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
                 System.exit(1);
-        }    
+        }
         return 0;
     }
     
@@ -396,7 +406,30 @@ public class CPU {
             case 0x35: return swapN(GBRegisters.Reg.L);
             case 0x36: return swapN(GBRegisters.Reg.HL);
 
-           
+            //RLC n
+            case 0x07: return rlcN(GBRegisters.Reg.A);
+            case 0x00: return rlcN(GBRegisters.Reg.B);
+            case 0x01: return rlcN(GBRegisters.Reg.C);
+            case 0x02: return rlcN(GBRegisters.Reg.D);
+            case 0x03: return rlcN(GBRegisters.Reg.E);
+            case 0x04: return rlcN(GBRegisters.Reg.H);
+            case 0x05: return rlcN(GBRegisters.Reg.L);
+            case 0x06: return rlcN(GBRegisters.Reg.HL);
+            //RL n
+            case 0x17: return rlN(GBRegisters.Reg.A);
+            case 0x10: return rlN(GBRegisters.Reg.B);
+            case 0x11: return rlN(GBRegisters.Reg.C);
+            case 0x12: return rlN(GBRegisters.Reg.D);
+            case 0x13: return rlN(GBRegisters.Reg.E);
+            case 0x14: return rlN(GBRegisters.Reg.H);
+            case 0x15: return rlN(GBRegisters.Reg.L);
+            case 0x16: return rlN(GBRegisters.Reg.HL);
+
+            
+            
+            
+            
+            
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
@@ -1594,6 +1627,227 @@ public class CPU {
         }
         return 8;
     }
+    
+    
+    /**
+     * RCLA
+     * 
+     * Rotate A left, Old bit 7 to Carry flag
+     * 
+     * Flags
+     * Z - set if result is 0
+     * H,N - Reset
+     * C - Contains old bit 7 data
+     * 
+     */ 
+    private int rlcA() {
+        int reg = registers.getReg(GBRegisters.Reg.A);
+        int msb = (reg & 0x80) >> 7;
+        
+        // rotate left
+        reg = reg << 1;
+        // set lsb to previous msb
+        reg |= msb;
+        
+        registers.resetAll();
+        if (msb == 0x1) {
+            registers.setC();
+        } 
+        if ((reg & 0xff) == 0) {
+            registers.setZ();
+        }
+        
+        registers.setReg(GBRegisters.Reg.A, reg);
+        return 4;   
+    }
+    
+    /**
+     * RLA
+     * Rotate A left through Carry Flag
+     * 
+     * Flags Affected:
+     * Z - Set if result is 0
+     * N,H - Reset
+     * C - contains old bit 7 data
+     * 
+     */ 
+    private int rlA() {
+        int reg = registers.getReg(GBRegisters.Reg.A);
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        
+        // rotate left
+        reg = reg << 1;
+        // set lsb to FLAG C
+        reg |= (flags & 0x10) >> 4;
+        
+        registers.resetAll();
+        if ((reg & 0x100) == 0x100) {
+            registers.setC();
+        } 
+        if ((reg & 0xff) == 0) {
+            registers.setZ();
+        }
+        
+        registers.setReg(GBRegisters.Reg.A, reg);
+        return 4;   
+    }
+
+    /**
+     * RRCA
+     * 
+     * Rotate A right, Old bit 0 to Carry flag
+     * 
+     * Flags
+     * Z - set if result is 0
+     * H,N - Reset
+     * C - Contains old bit 0 data
+     * 
+     */ 
+    private int rrcA() {
+        int reg = registers.getReg(GBRegisters.Reg.A);
+        int lsb = reg & 0x1;
+        
+        // rotate right
+        reg = reg >> 1;
+        // set msb to previous lsb
+        reg |= lsb << 7;
+        
+        registers.resetAll();
+        if (lsb == 1) {
+            registers.setC();
+        } 
+        if ((reg & 0xff) == 0) {
+            registers.setZ();
+        }
+        
+        registers.setReg(GBRegisters.Reg.A, reg);
+        return 4;   
+    }
+    
+    
+    /**
+     * RRA
+     * Rotate A right through Carry Flag
+     * 
+     * Flags Affected:
+     * Z - Set if result is 0
+     * N,H - Reset
+     * C - contains old bit 0 data
+     * 
+     */ 
+    private int rrA() {
+        int reg = registers.getReg(GBRegisters.Reg.A);
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        int lsb = reg & 0x1;
+        
+        // rotate right
+        reg = reg >> 1;
+        // set msb to FLAG C
+        reg |= (flags & 0x10) << 3;
+        
+        registers.resetAll();
+        if (lsb == 0x1) {
+            registers.setC();
+        } 
+        if ((reg & 0xff) == 0) {
+            registers.setZ();
+        }
+        
+        registers.setReg(GBRegisters.Reg.A, reg);
+        return 4;   
+    }
+    
+    /**
+     * RLC n
+     * 
+     * Rotate n left. Old bit 7 to carry flag
+     * 
+     * Flags:
+     * Z - set if result is zero
+     * N - Reset
+     * H - Reset
+     * C - Contains old bit 7 data
+     * 
+     */ 
+    private int rlcN(GBRegisters.Reg src) {
+        int data;
+        int cycles;
+        
+        if (src == GBRegisters.Reg.HL) {
+            data = memory.readByte(registers.getReg(src));
+            cycles = 16;
+        } else {
+            data = registers.getReg(src);
+            cycles = 8;   
+        }
+        
+        int msb = (data & 0x80) >> 7;
+        
+        data = data << 1;
+        data |= msb;
+        
+        registers.resetAll();
+        if (data == 0) {
+            registers.setZ();
+        }
+        if (msb == 1) {
+            registers.setC();
+        }
+        
+        if (src == GBRegisters.Reg.HL) {
+            memory.writeByte(registers.getReg(src), data);
+        } else {
+            registers.setReg(src, data);
+        }
+        
+        return cycles;
+    }
+    
+    /**
+     * RL n
+     * 
+     * Rotate n left through carry flag
+     * 
+     * Flags:
+     * Z - set if result is zero
+     * N - Reset
+     * H - Reset
+     * C - Contains old bit 7 data
+     */ 
+    private int rlN(GBRegisters.Reg src) {
+        int data;
+        int cycles;
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        
+        if (src == GBRegisters.Reg.HL) {
+            data = memory.readByte(registers.getReg(src));
+            cycles = 16;
+        } else {
+            data = registers.getReg(src);
+            cycles = 8;   
+        }
+        
+        int msb = (data & 0x80) >> 7;
+        
+        data = data << 1;
+        data |= (flags & 0x10) >> 4;
+        
+        registers.resetAll();
+        if (data == 0) {
+            registers.setZ();
+        }
+        if (msb == 1) {
+            registers.setC();
+        }
+        
+        if (src == GBRegisters.Reg.HL) {
+            memory.writeByte(registers.getReg(src), data);
+        } else {
+            registers.setReg(src, data);
+        }
+        return cycles;
+    }
+
     
 }
 
