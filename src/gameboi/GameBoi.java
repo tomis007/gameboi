@@ -1,7 +1,5 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Gameboi
  */
 package gameboi;
 import java.nio.file.Path;
@@ -22,8 +20,12 @@ public class GameBoi {
         
         GBMem memory = new GBMem(rom_path);
         
-        memory.writeByte(0x9000, 8);
-        System.out.println(memory.readByte(0x9000));
+        CPU z80 = new CPU(memory);
+        z80.ExecuteOpcode();
+        z80.ExecuteOpcode();
+        while (true) {
+            z80.ExecuteOpcode();
+        }
     }
     
 }
