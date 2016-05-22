@@ -31,7 +31,10 @@ import java.awt.image.BufferedImage;
 
 
 /**
- *
+ * LcdScreen
+ * 
+ * Used to hold the display image in the graphical interface
+ * 
  * @author tomis007
  */
 public class LcdScreen extends Component {
