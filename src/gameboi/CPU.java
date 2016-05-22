@@ -424,8 +424,24 @@ public class CPU {
             case 0x14: return rlN(GBRegisters.Reg.H);
             case 0x15: return rlN(GBRegisters.Reg.L);
             case 0x16: return rlN(GBRegisters.Reg.HL);
-
-            
+            //RRC n
+            case 0x0f: return rrcN(GBRegisters.Reg.A);
+            case 0x08: return rrcN(GBRegisters.Reg.B);
+            case 0x09: return rrcN(GBRegisters.Reg.C);
+            case 0x0a: return rrcN(GBRegisters.Reg.D);
+            case 0x0b: return rrcN(GBRegisters.Reg.E);
+            case 0x0c: return rrcN(GBRegisters.Reg.H);
+            case 0x0d: return rrcN(GBRegisters.Reg.L);
+            case 0x0e: return rrcN(GBRegisters.Reg.HL);
+            //RR n
+            case 0x1f: return rrN(GBRegisters.Reg.A);
+            case 0x18: return rrN(GBRegisters.Reg.B);
+            case 0x19: return rrN(GBRegisters.Reg.C);
+            case 0x1a: return rrN(GBRegisters.Reg.D);
+            case 0x1b: return rrN(GBRegisters.Reg.E);
+            case 0x1c: return rrN(GBRegisters.Reg.H);
+            case 0x1d: return rrN(GBRegisters.Reg.L);
+            case 0x1e: return rrN(GBRegisters.Reg.HL);
             
             
             
@@ -1848,6 +1864,97 @@ public class CPU {
         return cycles;
     }
 
+    /**
+     * RLC n
+     * 
+     * Rotate n Right. Old bit 0 to carry flag
+     * 
+     * Flags:
+     * Z - set if result is zero
+     * N - Reset
+     * H - Reset
+     * C - Contains old bit 0 data
+     * 
+     */ 
+    private int rrcN(GBRegisters.Reg src) {
+        int data;
+        int cycles;
+        
+        if (src == GBRegisters.Reg.HL) {
+            data = memory.readByte(registers.getReg(src));
+            cycles = 16;
+        } else {
+            data = registers.getReg(src);
+            cycles = 8;   
+        }
+        
+        int lsb = data & 0x1;
+        
+        data = data >> 1;
+        data |= lsb << 7;
+        
+        registers.resetAll();
+        if (data == 0) {
+            registers.setZ();
+        }
+        if (lsb == 1) {
+            registers.setC();
+        }
+        
+        if (src == GBRegisters.Reg.HL) {
+            memory.writeByte(registers.getReg(src), data);
+        } else {
+            registers.setReg(src, data);
+        }
+        return cycles;
+    }
+
+    /**
+     * RR n
+     * 
+     * Rotate n right through carry flag
+     * 
+     * Flags:
+     * Z - set if result is zero
+     * N - Reset
+     * H - Reset
+     * C - Contains old bit 7 data
+     */ 
+    private int rrN(GBRegisters.Reg src) {
+        int data;
+        int cycles;
+        int flags = registers.getReg(GBRegisters.Reg.F);
+        
+        if (src == GBRegisters.Reg.HL) {
+            data = memory.readByte(registers.getReg(src));
+            cycles = 16;
+        } else {
+            data = registers.getReg(src);
+            cycles = 8;   
+        }
+        
+        int lsb = data & 0x1;
+        
+        data = data >> 1;
+        data |= (flags & 0x10) << 3;
+        
+        registers.resetAll();
+        if (data == 0) {
+            registers.setZ();
+        }
+        if (lsb == 1) {
+            registers.setC();
+        }
+        
+        if (src == GBRegisters.Reg.HL) {
+            memory.writeByte(registers.getReg(src), data);
+        } else {
+            registers.setReg(src, data);
+        }
+        return cycles;
+    }
+    
+    
     
 }
 
