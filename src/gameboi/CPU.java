@@ -61,6 +61,7 @@ public class CPU {
      * Runs the instruction associated with the opcode, and returns the 
      * clock cycles taken.
      * 
+     * TODO HALT,STOP, EI,DI!!!!!
      * @param opcode (required) opcode to execute
      * @return number of cycles taken to execute
      */ 
