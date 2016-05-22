@@ -442,9 +442,24 @@ public class CPU {
             case 0x1c: return rrN(GBRegisters.Reg.H);
             case 0x1d: return rrN(GBRegisters.Reg.L);
             case 0x1e: return rrN(GBRegisters.Reg.HL);
-            
-            
-            
+            //SRA n
+            case 0x2f: return srAL(GBRegisters.Reg.A, false);
+            case 0x28: return srAL(GBRegisters.Reg.B, false);
+            case 0x29: return srAL(GBRegisters.Reg.C, false);
+            case 0x2a: return srAL(GBRegisters.Reg.D, false);
+            case 0x2b: return srAL(GBRegisters.Reg.E, false);
+            case 0x2c: return srAL(GBRegisters.Reg.H, false);
+            case 0x2d: return srAL(GBRegisters.Reg.L, false);
+            case 0x2e: return srAL(GBRegisters.Reg.HL, false);
+            //SRL n
+            case 0x3f: return srAL(GBRegisters.Reg.A, true);
+            case 0x38: return srAL(GBRegisters.Reg.B, true);
+            case 0x39: return srAL(GBRegisters.Reg.C, true);
+            case 0x3a: return srAL(GBRegisters.Reg.D, true);
+            case 0x3b: return srAL(GBRegisters.Reg.E, true);
+            case 0x3c: return srAL(GBRegisters.Reg.H, true);
+            case 0x3d: return srAL(GBRegisters.Reg.L, true);
+            case 0x3e: return srAL(GBRegisters.Reg.HL, true);
             
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
@@ -1955,6 +1970,52 @@ public class CPU {
     }
     
     
+    
+    /**
+     * SRA n/SRL n
+     * 
+     * Shift n right into carry, sign extended if SRA, unsigned if SRL
+     * 
+     * Z - set if result is zero
+     * N,H - reset
+     * C - contains old bit 0 data
+     * @param unsignedShift if true SRL, if false SRA
+     */ 
+    private int srAL(GBRegisters.Reg reg, boolean unsignedShift) {
+        int cycles;
+        int data;
+        
+        if (reg == GBRegisters.Reg.HL) {
+            data = memory.readByte(registers.getReg(reg));
+            cycles = 16;
+        } else {
+            data = registers.getReg(reg);
+            cycles = 8;
+        }
+        int lsb = data & 0x1;
+        
+        if (unsignedShift) {
+            data = data >>> 1;
+        } else {
+            data = data >> 1;
+        }
+        
+        registers.resetAll();
+        if (data == 0) {
+            registers.setZ();
+        }
+        if (lsb == 1) {
+            registers.setC();
+        }
+
+        if (reg == GBRegisters.Reg.HL) {
+            memory.writeByte(registers.getReg(reg), data);
+        } else {
+            registers.setReg(reg, data);
+        }
+        
+        return cycles;
+    }
     
 }
 
