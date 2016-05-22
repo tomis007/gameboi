@@ -462,7 +462,7 @@ public class CPU {
             case 0x3e: return srAL(GBRegisters.Reg.HL, true);
             
             default:
-                System.err.println("Unimplemented opcode: 0x" + 
+                System.err.println("Unimplemented opcode: 0xcb" + 
                         Integer.toHexString(opcode));
                 System.exit(1);
         }
