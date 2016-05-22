@@ -100,7 +100,7 @@ public class GBMem {
      */ 
     public void writeByte(int address, int data) {
         //only store a byte in memory
-        data = data & 0x0ff;
+        data = data & 0xff;
         
         if (address < 0) {
             System.err.println("ERROR: writing to negative address");
@@ -126,6 +126,23 @@ public class GBMem {
             }
         }
     }
+    
+    /**
+     * Returns current scanline
+     * 
+     * @return memory[0xff44]
+     */ 
+    public int getScanLine() {
+        return memory[0xff44];
+    }
+    
+    /**
+     * sets the scanline
+     * @param num new scanline value
+     */ 
+    public void setScanLine(int num) {
+        memory[0xff44] = num;
+    }        
     
     public int readWord(int address) {
         return 0;
