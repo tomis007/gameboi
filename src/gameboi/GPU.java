@@ -163,9 +163,9 @@ public class GPU {
             drawTiles();
         }
     
-//        if (isSet(lcdc, 1)) {
-//            drawSprites();
-//        }
+        if (isSet(lcdc, 1)) {
+            drawSprites();
+        }
         
     }
     
