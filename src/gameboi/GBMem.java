@@ -64,6 +64,40 @@ public class GBMem {
             System.err.println("Caught IOException: " + e.getMessage());
             System.exit(1);
         }
+        //initialize values in memory
+        memory[0xff05] = 0x0;
+        memory[0xff06] = 0x0;
+        memory[0xff07] = 0x0;
+        memory[0xff10] = 0x80;
+        memory[0xff11] = 0xbf;
+        memory[0xff12] = 0xf3;
+        memory[0xff14] = 0xbf;
+        memory[0xff16] = 0x3f;
+        memory[0xff17] = 0x0;
+        memory[0xff19] = 0xbf;
+        memory[0xff1a] = 0x7f;
+        memory[0xff1b] = 0xff;
+        memory[0xff1c] = 0x9f;
+        memory[0xff1e] = 0xbf;
+        memory[0xff20] = 0xff;
+        memory[0xff21] = 0x0;
+        memory[0xff22] = 0x0;
+        memory[0xff23] = 0xbf;
+        memory[0xff24] = 0x77;
+        memory[0xff25] = 0xf3;
+        memory[0xff26] = 0xf1;
+        memory[0xff40] = 0x91;
+        memory[0xff42] = 0x0;
+        memory[0xff43] = 0x0;
+        memory[0xff45] = 0x0;
+        memory[0xff47] = 0xfc;
+        memory[0xff48] = 0xff;
+        memory[0xff49] = 0xff;
+        memory[0xff4a] = 0x0;
+        memory[0xff4b] = 0x0;
+        memory[0xffff] = 0x0;
+        
+        
         
     }
 
@@ -101,7 +135,7 @@ public class GBMem {
     public void writeByte(int address, int data) {
         //only store a byte in memory
         data = data & 0xff;
-        
+
         if (address < 0) {
             System.err.println("ERROR: writing to negative address");
             System.exit(1);
