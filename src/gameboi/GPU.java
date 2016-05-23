@@ -159,10 +159,75 @@ public class GPU {
         // get flags
         lcdc = memory.readByte(0xff40);
         
-        int address = (isSet(lcdc, 3)) ? 0x9c00 : 0x9800;
-        address += (scanLine + memory.readByte(0xff42));
-        
+        if (isSet(lcdc, 0)) {
+            drawTiles();
+        }
     
+//        if (isSet(lcdc, 1)) {
+//            drawSprites();
+//        }
+        
+    }
+    
+    
+    /**
+     * drawTiles
+     * 
+     * Draw the tiles for the current scan line
+     * 
+     */ 
+    private void drawTiles() {
+        // get flags
+        lcdc = memory.readByte(0xff40);
+        //background coordinates
+        int scX = memory.readByte(0xff43);
+        int scY = memory.readByte(0xff42);
+        //window coordinates
+        int wY = memory.readByte(0xff4a);
+        int wX = memory.readByte(0xff4b) - 7;
+
+        // get first tile data address
+        int tileDataAddress = (isSet(lcdc, 4)) ? 0x8000 : 0x8800;
+        //test to see if going to draw window
+        boolean drawWindow = (wY <= scanLine) && isSet(lcdc, 5);
+        
+        //get background tile address
+        // NOTE??????
+        int backgroundAddress;
+        if (drawWindow) {
+            backgroundAddress = isSet(lcdc, 6) ? 0x9c00 : 0x9800;
+        } else {
+            backgroundAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
+        }
+        
+        int yPos = drawWindow ? scY + scanLine : scanLine - wY;
+        int tileRow = (yPos / 8) * 32;
+        
+        for (int pix = 0; pix < 160; ++pix) {
+            int xPos = (drawWindow && pix >= wX) ? pix - wX: pix + scX;
+            int tileCol = xPos / 8;
+            
+            int tileAddress = backgroundAddress + tileRow + tileCol;
+            
+            int tileNum = memory.readByte(tileAddress);
+            
+            int tileLoc = tileDataAddress;
+            
+            tileLoc += isSet(lcdc, 4) ? tileNum * 16 : ((byte)tileNum + 128) * 16; 
+            int line = yPos * 16;
+            int pixDatA = memory.readByte(line + tileLoc);
+            int pixDatB = memory.readByte(line + tileLoc + 1);
+            
+            int colorBit = 7 - (xPos % 8);
+            int colorNum = (pixDatB >> colorBit) & 0x1;
+            colorNum = (colorNum << 1) | ((pixDatA >> colorBit) & 0x1);
+            
+            screenDisplay.setRGB(pix, scanLine, getColor(colorNum, 0xff47));
+        }
+        
+    }
+    
+    private void drawSprites() {
     
     }
     
@@ -178,6 +243,39 @@ public class GPU {
         return (((num >> bitNum) & 0x1) == 1);
     }
     
+    private int getColor(int pixCode, int palAddress) {
+        int palette = memory.readByte(palAddress);
+        int colSelect;
+        
+        
+        switch(pixCode) {
+            case 0: colSelect = (palette & 0x3);
+                    break;
+            case 1: colSelect = (palette >> 2) & 0x3;
+                    break;
+            case 2: colSelect = (palette >> 4) & 0x3;
+                    break;       
+            case 3: colSelect = (palette >> 6) & 0x3;
+                    break;
+            default:
+                    colSelect = 0;
+                    break;
+        }
+        
+        int color;
+        switch (colSelect & 0x3) {
+            case 0: color = 0xffffffff;
+                    break;
+            case 1: color = 0xffcccccc;
+                    break;
+            case 2: color = 0xff777777;
+                    break;
+            case 3: color = 0xff000000;
+                    break;
+            default: color = 0xffffffff;
+        }
+        return color;
+    }
 }    
 
 
