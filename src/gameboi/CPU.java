@@ -5,7 +5,7 @@ package gameboi;
 
 // for testing
 import java.util.Random;
-
+import java.util.Scanner;
 
 /**
  * Z80 Gameboy CPU
@@ -48,11 +48,45 @@ public class CPU {
         
         int opcode = memory.readByte(pc);
         pc++;
-        System.out.println("Executing opcode: 0x" + Integer.toHexString(opcode));
-        return runInstruction(opcode);
+
+        int cycles = runInstruction(opcode);
+        if (pc >= 0x293) {
+//            dumpRegisters();
+        }
+        if (pc == 0x297) {
+            System.out.println("Breakpoint 0x297");
+            dumpRegisters();
+            enterDebugMode();
+        }
+//        if (pc == 0x294) {
+//            System.out.println("Breakpoint 0x294");
+//            dumpRegisters();
+//            enterDebugMode();
+//        }
+
+        return cycles;
     }
-    
-    
+  
+    /**
+     * Debug mode for cpu instructions
+     * 
+     */ 
+    private void enterDebugMode() {
+        Scanner sc = new Scanner(System.in);
+        String input;
+        input = sc.nextLine();
+        
+        while (!"q".equals(input)) {
+            if ("p".equals(input)) {
+                dumpRegisters();
+            } else if ("n".equals(input)) {
+                dumpRegisters();
+                ExecuteOpcode();
+            } 
+            System.out.print("pc: 0x" + Integer.toHexString(pc) + " > ");
+            input = sc.nextLine();
+        }
+    }
     
     /**
      * Opcode Instructions for the Gameboy Z80 Chip.
@@ -331,10 +365,10 @@ public class CPU {
             //JR n
             case 0x18: return jumpN();
             //JR cc, n
-            case 0x20: return jumpC(opcode);
-            case 0x28: return jumpC(opcode);
-            case 0x30: return jumpC(opcode);
-            case 0x38: return jumpC(opcode);
+            case 0x20: return jumpCN(opcode);
+            case 0x28: return jumpCN(opcode);
+            case 0x30: return jumpCN(opcode);
+            case 0x38: return jumpCN(opcode);
             
             
             //TODO HALT,STOP, EI,DI
@@ -1161,8 +1195,7 @@ public class CPU {
      */ 
     private int decN(GBRegisters.Reg src) {
         int reg = registers.getReg(src);
-        registers.setReg(src, reg - 1);
-        
+       
         registers.resetZ();
         if (registers.getReg(src) == 0) {
             registers.setZ();
@@ -1487,7 +1520,7 @@ public class CPU {
      * @param opcode (required) opcode for jump condition
      */ 
     private int jumpCN(int opcode) {
-        int flags = registers.getReg(GBRegisters.Reg.A);
+        int flags = registers.getReg(GBRegisters.Reg.F);
         byte offset = (byte)memory.readByte(pc);
         pc++;
         
@@ -2016,6 +2049,20 @@ public class CPU {
         }
         
         return cycles;
+    }
+    
+    /**
+     * Prints the contents of the registers to STDOUT
+     * 
+     * 
+     */ 
+    private void dumpRegisters() {
+        System.out.println("AF: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.AF)));
+        System.out.println("BC: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.BC)));
+        System.out.println("DE: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.DE)));
+        System.out.println("HL: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.HL)));
+        System.out.println("SP: 0x" + Integer.toHexString(sp) + "  PC: 0x" + Integer.toHexString(pc));
+        
     }
     
 }
