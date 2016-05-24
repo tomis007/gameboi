@@ -28,6 +28,7 @@ public class CPU {
     private final int clockSpeed;
     private int timerCounter;
     private int divideCounter;
+    private boolean interruptsEnabled;
     
     /**
      * Constructor for gameboy z80 CPU
@@ -42,6 +43,7 @@ public class CPU {
         clockSpeed = 4194304;
         timerCounter = 1024;
         divideCounter = clockSpeed / 16382;
+        interruptsEnabled = false;
     }
     
     /**
@@ -69,6 +71,7 @@ public class CPU {
 //        System.out.println(Integer.toHexString(pc));
         updateDivideRegister(cycles);
         updateTimers(cycles);
+        checkInterrupts();
 
         return cycles;
     }
@@ -382,11 +385,11 @@ public class CPU {
             
             
             //TODO HALT,STOP, EI,DI
-            case 0x76:
-            case 0x10:
-            case 0xf3:
-            case 0xfb: System.err.println("TODO!!!!"); break;
-//                       System.exit(1);
+            case 0x76: System.err.println("Halt not implemented"); return 0;
+            case 0x10: System.err.println("STOP not implemented"); return 0;
+            case 0xf3: return disableInterrupts();
+            case 0xfb: return enableInterrupts();
+
     
             //calls
             case 0xcd: return call();
@@ -413,8 +416,7 @@ public class CPU {
             case 0xd0: return retC(opcode);
             case 0xd8: return retC(opcode);
             //TODO RETI
-            case 0xd9: System.err.println("Unimplemented RETI");
-                       System.exit(1);
+            case 0xd9: return retI();
                        
             //ROTATES AND SHIFTS
             //RLCA
@@ -1807,6 +1809,20 @@ public class CPU {
         return 8;
     }
     
+    
+    /**
+     * RETI
+     * 
+     * pop two bytes from stack and jump to that address
+     * enable interrupts
+     */ 
+    private int retI() {
+        interruptsEnabled = true;
+        pc = popWordFromStack();
+        return 8;
+    }
+    
+    
     /**
      * Pushes a 16 bit word to the stack
      * MSB pushed first
@@ -2400,10 +2416,91 @@ public class CPU {
         }
     }
     
+    
+    /**
+     * requests an interrupt to be serviced by the CPU
+     * 
+     * id can be:
+     * 0 - V-Blank interrupt
+     * 1 - LCD Timer interrupt
+     * 2 - Timer interrupt 
+     * 4 - Joypad interrupt
+     * 
+     * @param id interrupt to request
+     */ 
     public void requestInterrupt(int id) {
-        
-        
-        
+        int flags = memory.readByte(0xff0f);
+        flags = setBit(1, id, flags);
+        memory.writeByte(0xff0f, flags);
     }
+    
+    /**
+     * Checks interrupts and services them if required
+     * 
+     */ 
+    private void checkInterrupts() {
+        if (!interruptsEnabled) {
+            return;
+        }
+        
+        int requests = memory.readByte(0xff0f);
+        if (requests == 0) {
+            return; //no interrupts to service
+        }
+        //service interrupts
+        int interruptEnable = memory.readByte(0xffff);
+        for (int i = 0; i < 5; ++i) {
+            if (isSet(requests, i) && isSet(interruptEnable, i)) {
+                handleInterrupt(i);
+            }
+        }
+    }
+    
+    
+    
+    /**
+     * Handles the interrupt
+     *
+     * id can be:
+     * 0 - V-Blank interrupt
+     * 1 - LCD Timer interrupt
+     * 2 - Timer interrupt 
+     * 4 - Joypad interrupt
+     * 
+     * @param id interrupt to handle
+     */ 
+    private void handleInterrupt(int id) {
+        interruptsEnabled = false;
+
+        int flags = memory.readByte(0xff0f);
+        flags = setBit(0, id, flags);
+        memory.writeByte(0xff0f, flags);
+        pushWordToStack(pc);
+        
+        switch (id) {
+            case 0: pc = 0x40;
+                    break;
+            case 1: pc = 0x48;
+                    break;
+            case 2: pc = 0x50;
+                    break;
+            case 4: pc = 0x60;
+                    break;
+            default: break;
+        }
+    }
+    
+    private int disableInterrupts() {
+        interruptsEnabled = false;
+        return 4;
+    }
+    
+    
+    private int enableInterrupts() {
+        interruptsEnabled = true;
+        return 4;
+    }
+    
+    
 }
 
