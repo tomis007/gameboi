@@ -50,12 +50,8 @@ public class CPU {
         pc++;
 
         int cycles = runInstruction(opcode);
-        if (pc >= 0x293) {
-//            dumpRegisters();
-        }
-        if (pc == 0x297) {
-            System.out.println("Breakpoint 0x297");
-            dumpRegisters();
+
+        if (pc == 0x29fa) {
             enterDebugMode();
         }
 //        if (pc == 0x294) {
@@ -74,6 +70,7 @@ public class CPU {
     private void enterDebugMode() {
         Scanner sc = new Scanner(System.in);
         String input;
+        System.out.print(" > ");
         input = sc.nextLine();
         
         while (!"q".equals(input)) {
@@ -83,7 +80,7 @@ public class CPU {
                 dumpRegisters();
                 ExecuteOpcode();
             } 
-            System.out.print("pc: 0x" + Integer.toHexString(pc) + " > ");
+            System.out.print(" > ");
             input = sc.nextLine();
         }
     }
@@ -304,7 +301,7 @@ public class CPU {
             case 0xbc: return cpN(GBRegisters.Reg.H, false);
             case 0xbd: return cpN(GBRegisters.Reg.L, false);    
             case 0xbe: return cpN(GBRegisters.Reg.HL, false);    
-            case 0xfe: return cpN(GBRegisters.Reg.A, false);
+            case 0xfe: return cpN(GBRegisters.Reg.A, true);
             // INC n
             case 0x3c: return incN(GBRegisters.Reg.A);
             case 0x04: return incN(GBRegisters.Reg.B);    
@@ -375,8 +372,8 @@ public class CPU {
             case 0x76:
             case 0x10:
             case 0xf3:
-            case 0xfb: System.err.println("TODO!!!!");
-                       System.exit(1);
+            case 0xfb: System.err.println("TODO!!!!"); break;
+//                       System.exit(1);
     
             //calls
             case 0xcd: return call();
@@ -496,9 +493,227 @@ public class CPU {
             case 0x3d: return srAL(GBRegisters.Reg.L, true);
             case 0x3e: return srAL(GBRegisters.Reg.HL, true);
             
+            //Bit opcodes
+            case 0x47: return bitBR(0, GBRegisters.Reg.A);
+            case 0x40: return bitBR(0, GBRegisters.Reg.B);
+            case 0x41: return bitBR(0, GBRegisters.Reg.C);
+            case 0x42: return bitBR(0, GBRegisters.Reg.D);
+            case 0x43: return bitBR(0, GBRegisters.Reg.E);
+            case 0x44: return bitBR(0, GBRegisters.Reg.H);
+            case 0x45: return bitBR(0, GBRegisters.Reg.L);
+            case 0x46: return bitBR(0, GBRegisters.Reg.HL);
+
+            case 0x4f: return bitBR(1, GBRegisters.Reg.A);
+            case 0x48: return bitBR(1, GBRegisters.Reg.B);
+            case 0x49: return bitBR(1, GBRegisters.Reg.C);
+            case 0x4a: return bitBR(1, GBRegisters.Reg.D);
+            case 0x4b: return bitBR(1, GBRegisters.Reg.E);
+            case 0x4c: return bitBR(1, GBRegisters.Reg.H);
+            case 0x4d: return bitBR(1, GBRegisters.Reg.L);
+            case 0x4e: return bitBR(1, GBRegisters.Reg.HL); 
+            
+            case 0x57: return bitBR(2, GBRegisters.Reg.A);
+            case 0x50: return bitBR(2, GBRegisters.Reg.B);
+            case 0x51: return bitBR(2, GBRegisters.Reg.C);
+            case 0x52: return bitBR(2, GBRegisters.Reg.D);
+            case 0x53: return bitBR(2, GBRegisters.Reg.E);
+            case 0x54: return bitBR(2, GBRegisters.Reg.H);
+            case 0x55: return bitBR(2, GBRegisters.Reg.L);
+            case 0x56: return bitBR(2, GBRegisters.Reg.HL);            
+
+            case 0x5f: return bitBR(3, GBRegisters.Reg.A);
+            case 0x58: return bitBR(3, GBRegisters.Reg.B);
+            case 0x59: return bitBR(3, GBRegisters.Reg.C);
+            case 0x5a: return bitBR(3, GBRegisters.Reg.D);
+            case 0x5b: return bitBR(3, GBRegisters.Reg.E);
+            case 0x5c: return bitBR(3, GBRegisters.Reg.H);
+            case 0x5d: return bitBR(3, GBRegisters.Reg.L);
+            case 0x5e: return bitBR(3, GBRegisters.Reg.HL);            
+
+            case 0x67: return bitBR(4, GBRegisters.Reg.A);
+            case 0x60: return bitBR(4, GBRegisters.Reg.B);
+            case 0x61: return bitBR(4, GBRegisters.Reg.C);
+            case 0x62: return bitBR(4, GBRegisters.Reg.D);
+            case 0x63: return bitBR(4, GBRegisters.Reg.E);
+            case 0x64: return bitBR(4, GBRegisters.Reg.H);
+            case 0x65: return bitBR(4, GBRegisters.Reg.L);
+            case 0x66: return bitBR(4, GBRegisters.Reg.HL);            
+
+            case 0x6f: return bitBR(5, GBRegisters.Reg.A);
+            case 0x68: return bitBR(5, GBRegisters.Reg.B);
+            case 0x69: return bitBR(5, GBRegisters.Reg.C);
+            case 0x6a: return bitBR(5, GBRegisters.Reg.D);
+            case 0x6b: return bitBR(5, GBRegisters.Reg.E);
+            case 0x6c: return bitBR(5, GBRegisters.Reg.H);
+            case 0x6d: return bitBR(5, GBRegisters.Reg.L);
+            case 0x6e: return bitBR(5, GBRegisters.Reg.HL);              
+            
+            case 0x77: return bitBR(6, GBRegisters.Reg.A);
+            case 0x70: return bitBR(6, GBRegisters.Reg.B);
+            case 0x71: return bitBR(6, GBRegisters.Reg.C);
+            case 0x72: return bitBR(6, GBRegisters.Reg.D);
+            case 0x73: return bitBR(6, GBRegisters.Reg.E);
+            case 0x74: return bitBR(6, GBRegisters.Reg.H);
+            case 0x75: return bitBR(6, GBRegisters.Reg.L);
+            case 0x76: return bitBR(6, GBRegisters.Reg.HL);            
+
+            case 0x7f: return bitBR(7, GBRegisters.Reg.A);
+            case 0x78: return bitBR(7, GBRegisters.Reg.B);
+            case 0x79: return bitBR(7, GBRegisters.Reg.C);
+            case 0x7a: return bitBR(7, GBRegisters.Reg.D);
+            case 0x7b: return bitBR(7, GBRegisters.Reg.E);
+            case 0x7c: return bitBR(7, GBRegisters.Reg.H);
+            case 0x7d: return bitBR(7, GBRegisters.Reg.L);
+            case 0x7e: return bitBR(7, GBRegisters.Reg.HL);              
+            
+            case 0xc7: return setBR(1, 0, GBRegisters.Reg.A);
+            case 0xc0: return setBR(1, 0, GBRegisters.Reg.B);
+            case 0xc1: return setBR(1, 0, GBRegisters.Reg.C);
+            case 0xc2: return setBR(1, 0, GBRegisters.Reg.D);
+            case 0xc3: return setBR(1, 0, GBRegisters.Reg.E);
+            case 0xc4: return setBR(1, 0, GBRegisters.Reg.H);
+            case 0xc5: return setBR(1, 0, GBRegisters.Reg.L);
+            case 0xc6: return setBR(1, 0, GBRegisters.Reg.HL);
+
+            case 0xcf: return setBR(1, 1, GBRegisters.Reg.A);
+            case 0xc8: return setBR(1, 1, GBRegisters.Reg.B);
+            case 0xc9: return setBR(1, 1, GBRegisters.Reg.C);
+            case 0xca: return setBR(1, 1, GBRegisters.Reg.D);
+            case 0xcb: return setBR(1, 1, GBRegisters.Reg.E);
+            case 0xcc: return setBR(1, 1, GBRegisters.Reg.H);
+            case 0xcd: return setBR(1, 1, GBRegisters.Reg.L);
+            case 0xce: return setBR(1, 1, GBRegisters.Reg.HL);
+            
+            case 0xd7: return setBR(1, 2, GBRegisters.Reg.A);
+            case 0xd0: return setBR(1, 2, GBRegisters.Reg.B);
+            case 0xd1: return setBR(1, 2, GBRegisters.Reg.C);
+            case 0xd2: return setBR(1, 2, GBRegisters.Reg.D);
+            case 0xd3: return setBR(1, 2, GBRegisters.Reg.E);
+            case 0xd4: return setBR(1, 2, GBRegisters.Reg.H);
+            case 0xd5: return setBR(1, 2, GBRegisters.Reg.L);
+            case 0xd6: return setBR(1, 2, GBRegisters.Reg.HL);
+
+            case 0xdf: return setBR(1, 3, GBRegisters.Reg.A);
+            case 0xd8: return setBR(1, 3, GBRegisters.Reg.B);
+            case 0xd9: return setBR(1, 3, GBRegisters.Reg.C);
+            case 0xda: return setBR(1, 3, GBRegisters.Reg.D);
+            case 0xdb: return setBR(1, 3, GBRegisters.Reg.E);
+            case 0xdc: return setBR(1, 3, GBRegisters.Reg.H);
+            case 0xdd: return setBR(1, 3, GBRegisters.Reg.L);
+            case 0xde: return setBR(1, 3, GBRegisters.Reg.HL);
+            
+            case 0xe7: return setBR(1, 4, GBRegisters.Reg.A);
+            case 0xe0: return setBR(1, 4, GBRegisters.Reg.B);
+            case 0xe1: return setBR(1, 4, GBRegisters.Reg.C);
+            case 0xe2: return setBR(1, 4, GBRegisters.Reg.D);
+            case 0xe3: return setBR(1, 4, GBRegisters.Reg.E);
+            case 0xe4: return setBR(1, 4, GBRegisters.Reg.H);
+            case 0xe5: return setBR(1, 4, GBRegisters.Reg.L);
+            case 0xe6: return setBR(1, 4, GBRegisters.Reg.HL);
+
+            case 0xef: return setBR(1, 5, GBRegisters.Reg.A);
+            case 0xe8: return setBR(1, 5, GBRegisters.Reg.B);
+            case 0xe9: return setBR(1, 5, GBRegisters.Reg.C);
+            case 0xea: return setBR(1, 5, GBRegisters.Reg.D);
+            case 0xeb: return setBR(1, 5, GBRegisters.Reg.E);
+            case 0xec: return setBR(1, 5, GBRegisters.Reg.H);
+            case 0xed: return setBR(1, 5, GBRegisters.Reg.L);
+            case 0xee: return setBR(1, 5, GBRegisters.Reg.HL);
+
+            case 0xf7: return setBR(1, 6, GBRegisters.Reg.A);
+            case 0xf0: return setBR(1, 6, GBRegisters.Reg.B);
+            case 0xf1: return setBR(1, 6, GBRegisters.Reg.C);
+            case 0xf2: return setBR(1, 6, GBRegisters.Reg.D);
+            case 0xf3: return setBR(1, 6, GBRegisters.Reg.E);
+            case 0xf4: return setBR(1, 6, GBRegisters.Reg.H);
+            case 0xf5: return setBR(1, 6, GBRegisters.Reg.L);
+            case 0xf6: return setBR(1, 6, GBRegisters.Reg.HL);
+
+            case 0xff: return setBR(1, 7, GBRegisters.Reg.A);
+            case 0xf8: return setBR(1, 7, GBRegisters.Reg.B);
+            case 0xf9: return setBR(1, 7, GBRegisters.Reg.C);
+            case 0xfa: return setBR(1, 7, GBRegisters.Reg.D);
+            case 0xfb: return setBR(1, 7, GBRegisters.Reg.E);
+            case 0xfc: return setBR(1, 7, GBRegisters.Reg.H);
+            case 0xfd: return setBR(1, 7, GBRegisters.Reg.L);
+            case 0xfe: return setBR(1, 7, GBRegisters.Reg.HL);
+            
+            case 0x87: return setBR(0, 0, GBRegisters.Reg.A);
+            case 0x80: return setBR(0, 0, GBRegisters.Reg.B);
+            case 0x81: return setBR(0, 0, GBRegisters.Reg.C);            
+            case 0x82: return setBR(0, 0, GBRegisters.Reg.D);
+            case 0x83: return setBR(0, 0, GBRegisters.Reg.E);            
+            case 0x84: return setBR(0, 0, GBRegisters.Reg.H);
+            case 0x85: return setBR(0, 0, GBRegisters.Reg.L);
+            case 0x86: return setBR(0, 0, GBRegisters.Reg.HL);            
+            
+            case 0x8f: return setBR(0, 1, GBRegisters.Reg.A);
+            case 0x88: return setBR(0, 1, GBRegisters.Reg.B);
+            case 0x89: return setBR(0, 1, GBRegisters.Reg.C);            
+            case 0x8a: return setBR(0, 1, GBRegisters.Reg.D);
+            case 0x8b: return setBR(0, 1, GBRegisters.Reg.E);            
+            case 0x8c: return setBR(0, 1, GBRegisters.Reg.H);
+            case 0x8d: return setBR(0, 1, GBRegisters.Reg.L);
+            case 0x8e: return setBR(0, 1, GBRegisters.Reg.HL);            
+
+            case 0x97: return setBR(0, 2, GBRegisters.Reg.A);
+            case 0x90: return setBR(0, 2, GBRegisters.Reg.B);
+            case 0x91: return setBR(0, 2, GBRegisters.Reg.C);            
+            case 0x92: return setBR(0, 2, GBRegisters.Reg.D);
+            case 0x93: return setBR(0, 2, GBRegisters.Reg.E);            
+            case 0x94: return setBR(0, 2, GBRegisters.Reg.H);
+            case 0x95: return setBR(0, 2, GBRegisters.Reg.L);
+            case 0x96: return setBR(0, 2, GBRegisters.Reg.HL);            
+            
+            case 0x9f: return setBR(0, 3, GBRegisters.Reg.A);
+            case 0x98: return setBR(0, 3, GBRegisters.Reg.B);
+            case 0x99: return setBR(0, 3, GBRegisters.Reg.C);            
+            case 0x9a: return setBR(0, 3, GBRegisters.Reg.D);
+            case 0x9b: return setBR(0, 3, GBRegisters.Reg.E);            
+            case 0x9c: return setBR(0, 3, GBRegisters.Reg.H);
+            case 0x9d: return setBR(0, 3, GBRegisters.Reg.L);
+            case 0x9e: return setBR(0, 3, GBRegisters.Reg.HL);            
+
+            case 0xa7: return setBR(0, 4, GBRegisters.Reg.A);
+            case 0xa0: return setBR(0, 4, GBRegisters.Reg.B);
+            case 0xa1: return setBR(0, 4, GBRegisters.Reg.C);            
+            case 0xa2: return setBR(0, 4, GBRegisters.Reg.D);
+            case 0xa3: return setBR(0, 4, GBRegisters.Reg.E);            
+            case 0xa4: return setBR(0, 4, GBRegisters.Reg.H);
+            case 0xa5: return setBR(0, 4, GBRegisters.Reg.L);
+            case 0xa6: return setBR(0, 4, GBRegisters.Reg.HL);            
+            
+            case 0xaf: return setBR(0, 5, GBRegisters.Reg.A);
+            case 0xa8: return setBR(0, 5, GBRegisters.Reg.B);
+            case 0xa9: return setBR(0, 5, GBRegisters.Reg.C);            
+            case 0xaa: return setBR(0, 5, GBRegisters.Reg.D);
+            case 0xab: return setBR(0, 5, GBRegisters.Reg.E);            
+            case 0xac: return setBR(0, 5, GBRegisters.Reg.H);
+            case 0xad: return setBR(0, 5, GBRegisters.Reg.L);
+            case 0xae: return setBR(0, 5, GBRegisters.Reg.HL);            
+
+            case 0xb7: return setBR(0, 6, GBRegisters.Reg.A);
+            case 0xb0: return setBR(0, 6, GBRegisters.Reg.B);
+            case 0xb1: return setBR(0, 6, GBRegisters.Reg.C);            
+            case 0xb2: return setBR(0, 6, GBRegisters.Reg.D);
+            case 0xb3: return setBR(0, 6, GBRegisters.Reg.E);            
+            case 0xb4: return setBR(0, 6, GBRegisters.Reg.H);
+            case 0xb5: return setBR(0, 6, GBRegisters.Reg.L);
+            case 0xb6: return setBR(0, 6, GBRegisters.Reg.HL);            
+            
+            case 0xbf: return setBR(0, 7, GBRegisters.Reg.A);
+            case 0xb8: return setBR(0, 7, GBRegisters.Reg.B);
+            case 0xb9: return setBR(0, 7, GBRegisters.Reg.C);            
+            case 0xba: return setBR(0, 7, GBRegisters.Reg.D);
+            case 0xbb: return setBR(0, 7, GBRegisters.Reg.E);            
+            case 0xbc: return setBR(0, 7, GBRegisters.Reg.H);
+            case 0xbd: return setBR(0, 7, GBRegisters.Reg.L);
+            case 0xbe: return setBR(0, 7, GBRegisters.Reg.HL);            
+            
             default:
                 System.err.println("Unimplemented opcode: 0xcb" + 
                         Integer.toHexString(opcode));
+                dumpRegisters();
                 System.exit(1);
         }
         return 0;
@@ -610,6 +825,7 @@ public class CPU {
         int address = memory.readByte(pc);
         pc++;
         address = address | (memory.readByte(pc) << 8);
+        pc++;
         memory.writeByte(address, registers.getReg(GBRegisters.Reg.A));
         return 16;
     }
@@ -752,6 +968,7 @@ public class CPU {
             memory.writeByte(0xff00 + offset, data);
         } else {
             int data = memory.readByte(0xff00 + offset);
+            System.out.println(Integer.toHexString(offset));
             registers.setReg(GBRegisters.Reg.A, data);
         }
         return 12;   
@@ -774,8 +991,11 @@ public class CPU {
         pc++;
         switch(reg) {
             case BC: registers.setReg(GBRegisters.Reg.BC, data);
+                     break;
             case DE: registers.setReg(GBRegisters.Reg.DE, data);
+                     break;
             case HL: registers.setReg(GBRegisters.Reg.HL, data);
+                     break;
         }        
         return 12;
     }
@@ -1137,7 +1357,7 @@ public class CPU {
         int regA = registers.getReg(GBRegisters.Reg.A);
 
         registers.resetAll();
-        if (regA == data) {
+        if (((regA - data) & 0xff) == 0) {
             registers.setZ();
         }
         registers.setN();
@@ -1195,7 +1415,8 @@ public class CPU {
      */ 
     private int decN(GBRegisters.Reg src) {
         int reg = registers.getReg(src);
-       
+       registers.setReg(src, reg - 1);
+        
         registers.resetZ();
         if (registers.getReg(src) == 0) {
             registers.setZ();
@@ -2061,8 +2282,91 @@ public class CPU {
         System.out.println("BC: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.BC)));
         System.out.println("DE: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.DE)));
         System.out.println("HL: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.HL)));
-        System.out.println("SP: 0x" + Integer.toHexString(sp) + "  PC: 0x" + Integer.toHexString(pc));
+        System.out.println("SP: 0x" + Integer.toHexString(sp));
+        System.out.println("PC: 0x" + Integer.toHexString(pc));
         
+    }
+    
+    
+    /**
+     * Test bit b in register r
+     * 
+     * Flags affected:
+     * Z - set if bit b of register r is 0
+     * N - reset
+     * H - set
+     * C - not affected
+     * 
+     * @param bit bit number to check
+     * @param reg register to check
+     * 
+     */ 
+    private int bitBR(int bit, GBRegisters.Reg reg) {
+        int data;
+        int cycles;
+        
+        if (reg == GBRegisters.Reg.HL) {
+            data = memory.readByte(registers.getReg(reg));
+            cycles = 16;
+        } else {
+            data = registers.getReg(reg);
+            cycles = 8;
+        }
+        
+        registers.resetZ();
+        if (isSet(bit, data)) {
+            registers.setZ();
+        }
+        registers.setH();
+        registers.resetN();
+        
+        return cycles;
+    }
+    
+    /**
+     * isSet
+     * 
+     * Tests the num if the bitNum bit is set
+     * 
+     * @param num number to test
+     * @param bitNum bitnumber to test
+     */ 
+    private boolean isSet(int num, int bitNum) {
+        return (((num >> bitNum) & 0x1) == 1);
+    }
+    
+    
+    /**
+     * Set bit bitNum in reg to val
+     * 
+     * @param val value to set
+     * @param bitNum bit to set
+     * @param reg register to set
+     */ 
+    private int setBR(int val, int bitNum, GBRegisters.Reg reg) {
+        if (reg == GBRegisters.Reg.HL) {
+            int data = memory.readByte(registers.getReg(reg));
+            data = setBit(val, bitNum, data);
+            memory.writeByte(registers.getReg(reg), data);
+            return 16;
+        } else {
+            int data = registers.getReg(reg);
+            data = setBit(val, bitNum, data);
+            registers.setReg(reg, data);
+            return 8;
+        }
+    }
+    
+    
+    /**
+     * sets bit bitNum to val in num
+     */ 
+    private int setBit(int val, int bitNum, int num) {
+        if (val == 1) {
+            return num | 1 << bitNum;
+        } else {
+            return num & ~(1 << bitNum);
+        }
     }
     
 }
