@@ -51,15 +51,15 @@ public class CPU {
 
         int cycles = runInstruction(opcode);
 
-        if (pc == 0x29fa) {
-            enterDebugMode();
-        }
+//        if (pc == 0x29fa) {
+//            enterDebugMode();
+//        }
 //        if (pc == 0x294) {
 //            System.out.println("Breakpoint 0x294");
 //            dumpRegisters();
 //            enterDebugMode();
 //        }
-
+        System.out.println(Integer.toHexString(pc));
         return cycles;
     }
   
@@ -968,7 +968,7 @@ public class CPU {
             memory.writeByte(0xff00 + offset, data);
         } else {
             int data = memory.readByte(0xff00 + offset);
-            System.out.println(Integer.toHexString(offset));
+//            System.out.println(Integer.toHexString(offset));
             registers.setReg(GBRegisters.Reg.A, data);
         }
         return 12;   
