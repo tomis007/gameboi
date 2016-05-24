@@ -113,6 +113,13 @@ public class GBMem {
      * @see GBMem
      */ 
     public int readByte(int address) {
+        
+        //for debugging
+        if (address == 0xff80) {
+            System.out.println("reading 0x" + memory[0xff80] + " from 0xff80");
+        }
+        
+        
         if (((address >= 0x4000) && (address <= 0x7fff)) || 
                 ((address >= 0xa000) && (address <= 0xbfff))) {
             //rom or ram banking
@@ -135,6 +142,11 @@ public class GBMem {
     public void writeByte(int address, int data) {
         //only store a byte in memory
         data = data & 0xff;
+        
+        //for debugging
+        if (address == 0xff80) {
+            System.out.println("writing 0x" + data + " to 0xff80");
+        }
 
         if (address < 0) {
             System.err.println("ERROR: writing to negative address");
@@ -152,6 +164,9 @@ public class GBMem {
             memory[address] = data;
             // ECHO
             memory[address - 0x2000] = data;
+        } else if (address == 0xff04) { 
+            //write to divide counter == reset
+            memory[0xff04] = 0;
         } else {
             if (memBank.isRamEnabled()) {
                 memBank.writeByte(address, data);
@@ -178,12 +193,12 @@ public class GBMem {
         memory[0xff44] = num;
     }        
     
-    public int readWord(int address) {
-        return 0;
-    }
-    
-    public void writeWord(int address, int data) {
-        
+    /**
+     * increments the divide counter at 0xff04
+     * 
+     */ 
+    public void incrementDivider() {
+        memory[0xff04] = (memory[0xff04] + 1) & 0xff;
     }
     
 }
