@@ -72,7 +72,6 @@ public class GPU {
     
     public GPU(GBMem memory) {
         this.memory = memory;
-        
         JFrame f = new JFrame("GameBoi");
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
@@ -101,7 +100,6 @@ public class GPU {
      * @param cycles - clock cycles progressed since last update
      */ 
     public void updateGraphics(int cycles) {
-        scanLine = memory.getScanLine();
         modeClock += cycles;
         
         switch(gpuMode) {
@@ -143,7 +141,8 @@ public class GPU {
             default:
                 break;
         }
-        memory.setScanLine(scanLine);
+        memory.setScanLine(0x94);
+//        memory.setScanLine(scanLine);
     }
     
     
