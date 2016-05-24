@@ -11,7 +11,7 @@ import java.util.Scanner;
  * Z80 Gameboy CPU
  * 
  * Implementation of a gameboy cpu. Eight registers (a,b,c,d,e,f,h,l), a
- * stack pointer, program counter
+ * stack pointer, program counter, and timers
  * 
  * @author tomis007
  */
@@ -25,7 +25,9 @@ public class CPU {
 
     //associated memory to use with CPU
     private final GBMem memory;
-
+    private final int clockSpeed;
+    private int timerCounter;
+    private int divideCounter;
     
     /**
      * Constructor for gameboy z80 CPU
@@ -37,10 +39,13 @@ public class CPU {
         sp = 0xfffe;
         this.memory = memory;
         registers = new GBRegisters();
+        clockSpeed = 4194304;
+        timerCounter = 1024;
+        divideCounter = clockSpeed / 16382;
     }
     
     /**
-     * Execute the next opcode in memory
+     * Execute the next opcode in memory, and update the CPU timers
      * 
      * @return clock cycles taken to execute the opcode
      */ 
@@ -50,16 +55,21 @@ public class CPU {
         pc++;
 
         int cycles = runInstruction(opcode);
+        if (pc == 0x2a20) {
+            //enterDebugMode();
+            dumpRegisters();
+            enterDebugMode();
+        }
 
-//        if (pc == 0x29fa) {
-//            enterDebugMode();
-//        }
 //        if (pc == 0x294) {
 //            System.out.println("Breakpoint 0x294");
 //            dumpRegisters();
 //            enterDebugMode();
 //        }
-        System.out.println(Integer.toHexString(pc));
+//        System.out.println(Integer.toHexString(pc));
+        updateDivideRegister(cycles);
+        updateTimers(cycles);
+
         return cycles;
     }
   
@@ -72,7 +82,7 @@ public class CPU {
         String input;
         System.out.print(" > ");
         input = sc.nextLine();
-        
+        int scanLine = memory.getScanLine();
         while (!"q".equals(input)) {
             if ("p".equals(input)) {
                 dumpRegisters();
@@ -82,6 +92,9 @@ public class CPU {
             } 
             System.out.print(" > ");
             input = sc.nextLine();
+            scanLine = (scanLine + 1) % 161;
+            memory.setScanLine(scanLine);
+            
         }
     }
     
@@ -735,50 +748,6 @@ public class CPU {
         return 8;   
     }
     
-    /**
-     * Testing function for EightBitLdNnN
-     * 
-     * Tests the eightBitLdNnN function with random input data
-     * to make sure the function works correctly
-     */ 
-    public void testEightBitLdNnN() {
-//        Random rand = new Random();
-//        for (int i = 0; i < 2000; ++i) {
-//            int data = rand.nextInt(256);
-//            for (int j = 0; j < 200; ++j) {
-//                eightBitLdNnN(GBRegisters.Reg.E, data);
-//                if (registers.getReg(GBRegisters.Reg.E)!= data) {
-//                    System.err.println("Error failed register E test");
-//                }
-//                data = rand.nextInt(256);
-//                eightBitLdNnN(GBRegisters.Reg.B, data);
-//                if (registers.getReg(GBRegisters.Reg.B)!= data) {
-//                    System.err.println("Error failed register B test");
-//                }
-//                data = rand.nextInt(256);
-//                eightBitLdNnN(GBRegisters.Reg.C, data);
-//                if (registers.getReg(GBRegisters.Reg.C) != data) {
-//                    System.err.println("Error failed register C test");
-//                }
-//                data = rand.nextInt(256);
-//                eightBitLdNnN(GBRegisters.Reg.D, data);
-//                if (registers.getReg(GBRegisters.Reg.D) != data) {
-//                    System.err.println("Error failed register D test");
-//                }
-//                data = rand.nextInt(256);
-//                eightBitLdNnN(GBRegisters.Reg.H, data);
-//                if (registers.getReg(GBRegisters.Reg.H) != data) {
-//                    System.err.println("Error failed register H test");
-//                }
-//                data = rand.nextInt(256);
-//                eightBitLdNnN(GBRegisters.Reg.L, data);
-//                if (registers.getReg(GBRegisters.Reg.L) != data) {
-//                    System.err.println("Error failed register L test");
-//                }
-//            }
-//        }
-//        System.out.println("Finished and reported all error messages");
-    }
     
     
     /**
@@ -968,7 +937,6 @@ public class CPU {
             memory.writeByte(0xff00 + offset, data);
         } else {
             int data = memory.readByte(0xff00 + offset);
-//            System.out.println(Integer.toHexString(offset));
             registers.setReg(GBRegisters.Reg.A, data);
         }
         return 12;   
@@ -2368,6 +2336,74 @@ public class CPU {
             return num & ~(1 << bitNum);
         }
     }
+
+    /**
+     * updateDivideRegister
+     * 
+     * updates the divide register 
+     * ASSUMES CLOCKSPEED OF 4194304
+     * 
+     * @param cycles (clock cycles passed this instruction)
+     */ 
+    private void updateDivideRegister(int cycles) {
+        divideCounter += cycles;
+        
+        if (divideCounter >= 0xff) {
+            divideCounter = 0;
+            memory.incrementDivider();
+        }
+
+    }
+
+    /**
+     * updateTimers
+     * 
+     * updates the CPU timers in memory
+     * @param cycles number of cycles that have passed
+     */ 
+    private void updateTimers(int cycles) {
+        //check the enable
+        if (!isSet(memory.readByte(0xff07), 2)) {
+            return;
+        }
+
+        timerCounter -= cycles;
+        
+        //update the counter in memory
+        if (timerCounter <= 0) {
+            timerCounter = getCountFrequency();
+            
+            if (memory.readByte(0xff05) == 0xff) {
+                memory.writeByte(0xff05, memory.readByte(0xff06));
+                requestInterrupt(0x2);
+            } else {
+                memory.writeByte(0xff05, memory.readByte(0xff05) + 1);
+            }
+        }
+    }
     
+    /**
+     * returns the counting frequency of the timer in memory
+     * 
+     * checks the timer controller register 0xff07
+     * and returns the appropriate clock cycle update 
+     */ 
+    private int getCountFrequency() {
+        int freq = memory.readByte(0xff07) & 0x3;
+        
+        switch (freq) {
+            case 0: return clockSpeed / 4096;
+            case 1: return clockSpeed / 262144;
+            case 2: return clockSpeed / 65526;
+            case 3: return clockSpeed / 16384;
+            default: return clockSpeed / 4096;
+        }
+    }
+    
+    public void requestInterrupt(int id) {
+        
+        
+        
+    }
 }
 
