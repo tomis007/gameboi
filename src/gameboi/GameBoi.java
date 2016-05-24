@@ -21,11 +21,20 @@ public class GameBoi {
         GBMem memory = new GBMem(rom_path);
         
         CPU z80 = new CPU(memory);
-        z80.ExecuteOpcode();
-        z80.ExecuteOpcode();
+
+        GPU gpu = new GPU(memory);
+        
+        int count = 0;
         while (true) {
-            z80.ExecuteOpcode();
+            int cycles;
+//            count++;
+            cycles = z80.ExecuteOpcode();
+            gpu.updateGraphics(cycles);
+//            System.out.println(count);
         }
+  //      System.out.println(count);
+//        System.exit(1);
+
     }
     
 }
