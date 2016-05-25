@@ -22,8 +22,9 @@ public class GameBoi {
         
         CPU z80 = new CPU(memory);
 
-        GPU gpu = new GPU(memory);
+        GPU gpu = new GPU(memory, z80);
         
+        z80.setGPU(gpu);
         int count = 0;
         while (true) {
             int cycles;
