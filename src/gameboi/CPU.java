@@ -4,7 +4,6 @@
 package gameboi;
 
 // for testing
-import java.util.Random;
 import java.util.Scanner;
 
 /**
@@ -23,6 +22,9 @@ public class CPU {
     private int sp;
     private int pc;
 
+    //for debugging    
+    private GPU gpu;
+    
     //associated memory to use with CPU
     private final GBMem memory;
     private final int clockSpeed;
@@ -46,38 +48,36 @@ public class CPU {
         interruptsEnabled = false;
     }
     
+    public void setGPU(GPU gpu) {
+        this.gpu = gpu;
+    }
+    
     /**
      * Execute the next opcode in memory, and update the CPU timers
      * 
      * @return clock cycles taken to execute the opcode
      */ 
     public int ExecuteOpcode() {
-        
+
+        if (pc == 0x353) {
+            enterDebugMode();
+        }
+
+        System.out.println(Integer.toHexString(pc));
         int opcode = memory.readByte(pc);
         pc++;
 
         int cycles = runInstruction(opcode);
-        if (pc == 0x2a20) {
-            //enterDebugMode();
-            dumpRegisters();
-            enterDebugMode();
-        }
-
-//        if (pc == 0x294) {
-//            System.out.println("Breakpoint 0x294");
-//            dumpRegisters();
-//            enterDebugMode();
-//        }
-//        System.out.println(Integer.toHexString(pc));
         updateDivideRegister(cycles);
         updateTimers(cycles);
         checkInterrupts();
-
+        
         return cycles;
     }
   
     /**
      * Debug mode for cpu instructions
+     * runs one instruction at a time, prints registers
      * 
      */ 
     private void enterDebugMode() {
@@ -91,13 +91,11 @@ public class CPU {
                 dumpRegisters();
             } else if ("n".equals(input)) {
                 dumpRegisters();
-                ExecuteOpcode();
+                int cycles = ExecuteOpcode();
+                gpu.updateGraphics(cycles);
             } 
             System.out.print(" > ");
             input = sc.nextLine();
-            scanLine = (scanLine + 1) % 161;
-            memory.setScanLine(scanLine);
-            
         }
     }
     
@@ -108,7 +106,7 @@ public class CPU {
      * Runs the instruction associated with the opcode, and returns the 
      * clock cycles taken.
      * 
-     * TODO HALT,STOP, EI,DI!!!!!
+     * TODO HALT,STOP
      * @param opcode (required) opcode to execute
      * @return number of cycles taken to execute
      */ 
@@ -384,7 +382,7 @@ public class CPU {
             case 0x38: return jumpCN(opcode);
             
             
-            //TODO HALT,STOP, EI,DI
+            //TODO HALT,STOP
             case 0x76: System.err.println("Halt not implemented"); return 0;
             case 0x10: System.err.println("STOP not implemented"); return 0;
             case 0xf3: return disableInterrupts();
@@ -415,7 +413,7 @@ public class CPU {
             case 0xc8: return retC(opcode);
             case 0xd0: return retC(opcode);
             case 0xd8: return retC(opcode);
-            //TODO RETI
+            //RETI
             case 0xd9: return retI();
                        
             //ROTATES AND SHIFTS
@@ -2490,12 +2488,21 @@ public class CPU {
         }
     }
     
+    /**
+     * DI
+     * 
+     * disables interrupts
+     */ 
     private int disableInterrupts() {
         interruptsEnabled = false;
         return 4;
     }
     
-    
+    /**
+     * EI 
+     * 
+     * enables interrupts
+     */ 
     private int enableInterrupts() {
         interruptsEnabled = true;
         return 4;
