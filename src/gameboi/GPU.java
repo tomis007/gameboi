@@ -30,20 +30,25 @@ import javax.swing.JFrame;
 /**
  * GPU for gameboy
  * 
+ * Updates the graphics according to CPU and memory
+ * 
+ * NOTE: doesnt work yet...
+ * 
  * Referred heavily to:
  * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
  * 
  * @author tomis007
  */
 public class GPU {
-    private BufferedImage screenDisplay;
-    private LcdScreen lcdscreen;
-    private GBMem memory;
+    private final BufferedImage screenDisplay;
+    private final LcdScreen lcdscreen;
+    private final GBMem memory;
     
     /**
-     * keeps clock timing relative to cpu 
+     * keeps clock timing relative to cpu
+     * 456 clock cycles to draw each scanline
      */
-    private int modeClock;
+    private int scanLineClock;
     /**
      * contains current mode of the gpu
      * 4 values
@@ -53,8 +58,12 @@ public class GPU {
      * 1: Vertical Blank 4560 cycles
      */ 
     private int gpuMode;
-    private int scanLine;
+
     
+    /**
+     * access to the cpu for requesting interrupts 
+     */ 
+    private final CPU cpu;
     
     /**
      * Bit 7: LCD Display enable (0=Off, 1=On)
@@ -70,8 +79,11 @@ public class GPU {
     
     
     
-    public GPU(GBMem memory) {
+    public GPU(GBMem memory, CPU cpu) {
         this.memory = memory;
+        this.cpu = cpu;
+        scanLineClock = 456;
+        
         JFrame f = new JFrame("GameBoi");
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
@@ -97,54 +109,90 @@ public class GPU {
      * 
      * Referred heavily to:
      * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
+     * and http://www.codeslinger.co.uk/pages/projects/gameboy/lcd.html
      * @param cycles - clock cycles progressed since last update
      */ 
     public void updateGraphics(int cycles) {
-        modeClock += cycles;
+        updateLCDFlag();
         
-        switch(gpuMode) {
-            case 2:
-                if (modeClock >= 80) {
-                    modeClock = 0;
-                    gpuMode = 3;
-                }
-                break;
-            case 3:
-                if (modeClock >= 172) {
-                    modeClock = 0;
-                    gpuMode = 0;
-                    renderScan();
-                }
-                break;
-            case 0:
-                if (modeClock >= 204) {
-                    modeClock = 0;
-                    scanLine++;
-                    if (scanLine >= 143) {
-                        gpuMode = 1;
-                        lcdscreen.repaint();
-                    } else {
-                        gpuMode = 2;
-                    }
-                }
-                break;
-            case 1:
-                if (modeClock >= 456) {
-                    modeClock = 0;
-                    scanLine++;
-                    if (scanLine > 153) {
-                        gpuMode = 2;
-                        scanLine = 0;
-                    }
-                }
-                break;
-            default:
-                break;
+        if (!lcdEnabled()) {
+            return;
         }
-        memory.setScanLine(0x94);
-//        memory.setScanLine(scanLine);
+        
+        scanLineClock -= cycles;
+        //not time to update scanline yet
+        if (scanLineClock > 0) {
+            return;
+        }
+        
+        //draw next scanline
+        memory.incScanLine();
+        int currentScanLine = memory.getScanLine();
+        
+        if (currentScanLine == 144) {
+            cpu.requestInterrupt(0);
+        } else if (currentScanLine > 153) {
+            memory.setScanLine(0);
+        } else if (currentScanLine < 144) {
+            renderScan();
+        }
     }
     
+    
+    
+    
+//        switch(gpuMode) {
+//            case 2:
+//                if (modeClock >= 80) {
+//                    modeClock = 0;
+//                    gpuMode = 3;
+//                }
+//                break;
+//            case 3:
+//                if (modeClock >= 172) {
+//                    modeClock = 0;
+//                    gpuMode = 0;
+//                    renderScan();
+//                }
+//                break;
+//            case 0:
+//                if (modeClock >= 204) {
+//                    modeClock = 0;
+//                    scanLine++;
+//                    if (scanLine >= 143) {
+//                        gpuMode = 1;
+//                        lcdscreen.repaint();
+//                    } else {
+//                        gpuMode = 2;
+//                    }
+//                }
+//                break;
+//            case 1:
+//                if (modeClock >= 456) {
+//                    modeClock = 0;
+//                    scanLine++;
+//                    if (scanLine > 153) {
+//                        gpuMode = 2;
+//                        scanLine = 0;
+//                    }
+//                }
+//                break;
+//            default:
+//                break;
+//        }
+//        memory.setScanLine(0x94);
+////        memory.setScanLine(scanLine);
+//    }
+    
+    /**
+     * Returns the status of the lcd as indicated by the 
+     * lcdc flag in memory
+     * 
+     * @return true if bit 7 of lcdc is 1, false if 0
+     */ 
+    private boolean lcdEnabled() {
+        return isSet(memory.readByte(0xff40), 7);
+    }
     
     /**
      * renderScan()
@@ -170,61 +218,140 @@ public class GPU {
     
     
     /**
+     * Updates the lcd flag in memory at 0xff41
+     * according to current state
+     */ 
+    private void updateLCDFlag() {
+        if (!lcdEnabled()) {
+            resetToModeOne();
+            return;
+        }
+
+        int flags = memory.readByte(0xff41);
+        int currentScanLine = memory.readByte(0xff44);
+        int currentMode = flags & 0x3;
+        int nextMode;
+        boolean requestInterrupt = false;
+        
+        if (currentScanLine >= 144) {
+            nextMode = 1;
+            requestInterrupt = isSet(flags, 4) && (currentMode != 1);
+        } else {
+            if (scanLineClock >= 376) {
+                nextMode = 2;
+                requestInterrupt = isSet(flags, 5) && (currentMode != 2);
+            } else if (scanLineClock >= 204) {
+                nextMode = 3;
+            } else {
+                nextMode = 0;
+                requestInterrupt = isSet(flags, 3) && (currentMode != 0);
+            }
+        }
+        
+        if (requestInterrupt) {
+            cpu.requestInterrupt(1);
+        }
+        
+        if (memory.readByte(0xff45) == currentScanLine) {
+            flags |= 1 << 2;
+            if (isSet(flags, 6)) {
+                cpu.requestInterrupt(1);
+            }
+        } else {
+            flags &= ~(1 << 2);
+        }
+        
+        flags = setMode(flags, nextMode);
+        memory.writeByte(0xff41, flags);
+    }
+    
+    
+    /**
+     * Sets the next mode in flag
+     * (lowest two bits)
+     */ 
+    private int setMode(int flag, int nextMode) {
+        flag = flag & 0xfc;
+        switch(nextMode) {
+            case 0: return flag;
+            case 1: return flag | 0x1;
+            case 2: return flag | 0x2;
+            case 3: return flag | 0x3;
+            default: return flag;
+        }    
+    }
+    
+    /**
+     * Resets the state in 0xff41 to 1
+     * Sets the scanLineClock back to 456, and the scanline itself
+     * int memory to 0
+     */ 
+    private void resetToModeOne() {
+        int flags = memory.readByte(0xff41);
+        scanLineClock = 456;
+        memory.setScanLine(0);
+        //set state to 01
+        flags &= 252;
+        flags |= 0x1;
+        memory.writeByte(0xff41, flags);
+    }
+    
+    /**
      * drawTiles
      * 
      * Draw the tiles for the current scan line
      * 
      */ 
-    private void drawTiles() {
-        // get flags
-        lcdc = memory.readByte(0xff40);
-        //background coordinates
-        int scX = memory.readByte(0xff43);
-        int scY = memory.readByte(0xff42);
-        //window coordinates
-        int wY = memory.readByte(0xff4a);
-        int wX = memory.readByte(0xff4b) - 7;
-
-        // get first tile data address
-        int tileDataAddress = (isSet(lcdc, 4)) ? 0x8000 : 0x8800;
-        //test to see if going to draw window
-        boolean drawWindow = (wY <= scanLine) && isSet(lcdc, 5);
+    private void drawTiles() {}
+//        // get flags
+//        lcdc = memory.readByte(0xff40);
+//        //background coordinates
+//        int scX = memory.readByte(0xff43);
+//        int scY = memory.readByte(0xff42);
+//        //window coordinates
+//        int wY = memory.readByte(0xff4a);
+//        int wX = memory.readByte(0xff4b) - 7;
+//
+//        // get first tile data address
+//        int tileDataAddress = (isSet(lcdc, 4)) ? 0x8000 : 0x8800;
+//        //test to see if going to draw window
+//        boolean drawWindow = (wY <= scanLine) && isSet(lcdc, 5);
+//        
+//        //get background tile address
+//        // NOTE??????
+//        int backgroundAddress;
+//        if (drawWindow) {
+//            backgroundAddress = isSet(lcdc, 6) ? 0x9c00 : 0x9800;
+//        } else {
+//            backgroundAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
+//        }
+//        
+//        int yPos = drawWindow ? scY + scanLine : scanLine - wY;
+//        int tileRow = (yPos / 8) * 32;
+//        
+//        for (int pix = 0; pix < 160; ++pix) {
+//            int xPos = (drawWindow && pix >= wX) ? pix - wX: pix + scX;
+//            int tileCol = xPos / 8;
+//            
+//            int tileAddress = backgroundAddress + tileRow + tileCol;
+//            
+//            int tileNum = memory.readByte(tileAddress);
+//            
+//            int tileLoc = tileDataAddress;
+//            
+//            tileLoc += isSet(lcdc, 4) ? tileNum * 16 : ((byte)tileNum + 128) * 16; 
+//            int line = yPos * 16;
+//            int pixDatA = memory.readByte(line + tileLoc);
+//            int pixDatB = memory.readByte(line + tileLoc + 1);
+//            
+//            int colorBit = 7 - (xPos % 8);
+//            int colorNum = (pixDatB >> colorBit) & 0x1;
+//            colorNum = (colorNum << 1) | ((pixDatA >> colorBit) & 0x1);
+//            
+//            screenDisplay.setRGB(pix, scanLine, getColor(colorNum, 0xff47));
+//        }
         
-        //get background tile address
-        // NOTE??????
-        int backgroundAddress;
-        if (drawWindow) {
-            backgroundAddress = isSet(lcdc, 6) ? 0x9c00 : 0x9800;
-        } else {
-            backgroundAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
-        }
-        
-        int yPos = drawWindow ? scY + scanLine : scanLine - wY;
-        int tileRow = (yPos / 8) * 32;
-        
-        for (int pix = 0; pix < 160; ++pix) {
-            int xPos = (drawWindow && pix >= wX) ? pix - wX: pix + scX;
-            int tileCol = xPos / 8;
-            
-            int tileAddress = backgroundAddress + tileRow + tileCol;
-            
-            int tileNum = memory.readByte(tileAddress);
-            
-            int tileLoc = tileDataAddress;
-            
-            tileLoc += isSet(lcdc, 4) ? tileNum * 16 : ((byte)tileNum + 128) * 16; 
-            int line = yPos * 16;
-            int pixDatA = memory.readByte(line + tileLoc);
-            int pixDatB = memory.readByte(line + tileLoc + 1);
-            
-            int colorBit = 7 - (xPos % 8);
-            int colorNum = (pixDatB >> colorBit) & 0x1;
-            colorNum = (colorNum << 1) | ((pixDatA >> colorBit) & 0x1);
-            
-            screenDisplay.setRGB(pix, scanLine, getColor(colorNum, 0xff47));
-        }
-        
-    }
+//    }
     
     private void drawSprites() {
     
