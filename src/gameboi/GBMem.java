@@ -96,9 +96,6 @@ public class GBMem {
         memory[0xff4a] = 0x0;
         memory[0xff4b] = 0x0;
         memory[0xffff] = 0x0;
-        
-        
-        
     }
 
     /**
@@ -116,7 +113,7 @@ public class GBMem {
         
         //for debugging
         if (address == 0xff80) {
-            System.out.println("reading 0x" + memory[0xff80] + " from 0xff80");
+//            System.out.println("reading 0x" + memory[0xff80] + " from 0xff80");
         }
         
         
@@ -145,7 +142,7 @@ public class GBMem {
         
         //for debugging
         if (address == 0xff80) {
-            System.out.println("writing 0x" + data + " to 0xff80");
+//            System.out.println("writing 0x" + data + " to 0xff80");
         }
 
         if (address < 0) {
@@ -164,9 +161,11 @@ public class GBMem {
             memory[address] = data;
             // ECHO
             memory[address - 0x2000] = data;
-        } else if (address == 0xff04) { 
-            //write to divide counter == reset
-            memory[0xff04] = 0;
+        } else if ((address == 0xff04) || (address == 0xff44)) { 
+            //write to divide counter or scanLine means reset to 0
+            memory[address] = 0;
+        } else  if (address == 0xff46) {
+            DMATransfer(data);
         } else {
             if (memBank.isRamEnabled()) {
                 memBank.writeByte(address, data);
@@ -185,13 +184,32 @@ public class GBMem {
         return memory[0xff44];
     }
     
+    
+    
+    /**
+     * preforms a DMA transfer 
+     */ 
+    private void DMATransfer(int data) {
+        int address = data * 0x100;
+        for (int i = 0; i < 0xa0; ++i) {
+            memory[0xfe00 + i] = memory[address + 1];
+        }
+    }
+    
     /**
      * sets the scanline
      * @param num new scanline value
      */ 
     public void setScanLine(int num) {
         memory[0xff44] = num;
-    }        
+    }  
+    
+    /**
+     * increments the scanLine at 0xff44
+     */ 
+    public void incScanLine() {
+        memory[0xff44]++;
+    }
     
     /**
      * increments the divide counter at 0xff04
