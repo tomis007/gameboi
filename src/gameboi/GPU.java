@@ -23,7 +23,7 @@
  */
 package gameboi;
 
-import java.awt.Color;
+
 import java.awt.image.BufferedImage;
 import javax.swing.JFrame;
 
@@ -98,10 +98,11 @@ public class GPU {
         memory.setScanLine(0);
         f.add(lcdscreen);
         f.pack();
+        f.addKeyListener(new gameboyKeyListener(memory, cpu)); 
         f.setVisible(true);
     }
     
-    
+  
     
     /**
      * Updates the GPU graphics
