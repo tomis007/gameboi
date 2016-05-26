@@ -37,6 +37,19 @@ public class GBMem {
     private int memory[];
     private int cartridge[];
     private MemBanks memBank;
+    
+    /**
+     * KEY 7 - SELECT
+     * KEY 6 - START
+     * KEY 5 - B
+     * KEY 4 - A
+     * KEY 3 - RIGHT
+     * KEY 2 - LEFT
+     * KEY 1 - UP
+     * KEY 0 - DOWN
+     */
+    private int joyPadState;
+    
     /**
      * Constructor for GBMem object
      * <p>
@@ -64,6 +77,8 @@ public class GBMem {
             System.err.println("Caught IOException: " + e.getMessage());
             System.exit(1);
         }
+        joyPadState = 0xff;
+        
         //initialize values in memory
         memory[0xff05] = 0x0;
         memory[0xff06] = 0x0;
@@ -116,8 +131,9 @@ public class GBMem {
 //            System.out.println("reading 0x" + memory[0xff80] + " from 0xff80");
         }
         
-        
-        if (((address >= 0x4000) && (address <= 0x7fff)) || 
+        if (address == 0xff00) {
+            return translateJoyPad();
+        } else if (((address >= 0x4000) && (address <= 0x7fff)) || 
                 ((address >= 0xa000) && (address <= 0xbfff))) {
             //rom or ram banking
             return memBank.readByte(address);
@@ -140,11 +156,11 @@ public class GBMem {
         //only store a byte in memory
         data = data & 0xff;
         
-        //for debugging
+        //for debugging TODO
         if (address == 0xff80) {
-//            System.out.println("writing 0x" + data + " to 0xff80");
+            return;
         }
-
+        
         if (address < 0) {
             System.err.println("ERROR: writing to negative address");
             System.exit(1);
@@ -218,5 +234,60 @@ public class GBMem {
     public void incrementDivider() {
         memory[0xff04] = (memory[0xff04] + 1) & 0xff;
     }
+    
+    
+    /**
+     * Sets the current joypad state to nextSTate
+     * @param nextState value to set
+     */ 
+    public void updateJoyPadState(int nextState) {
+        joyPadState = nextState;
+    }
+    
+    /**
+     * returns the current value of joyPadState
+     * @return current joypad state
+     */ 
+    public int getJoyPadState() {
+        return joyPadState;
+    }
+    
+    
+    /**
+     *
+     * KEY 7 - START
+     * KEY 6 - SELECT
+     * KEY 5 - B
+     * KEY 4 - A
+     * KEY 3 - DOWN
+     * KEY 2 - UP
+     * KEY 1 - LEFT
+     * KEY 0 - RIGHT
+     */ 
+    private int translateJoyPad() {
+        int requests = memory[0xff00];
+
+        int joypad = 0xff;
+        // interested in directional pad
+        if (!isSet(requests, 5)) {
+            joypad = joyPadState & 0xf;
+        } else if (!isSet(requests, 4)) {
+            //interested in other buttons
+            joypad = (joyPadState & 0xf0) >> 4;
+        }
+        return joypad;
+    }
+    
+   /**
+     * isSet
+     * 
+     * Tests the num if the bitNum bit is set
+     * 
+     * @param num number to test
+     * @param bitNum bitnumber to test
+     */ 
+    private boolean isSet(int num, int bitNum) {
+        return (((num >> bitNum) & 0x1) == 1);
+    }    
     
 }
