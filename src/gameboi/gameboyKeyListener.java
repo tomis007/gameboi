@@ -59,7 +59,9 @@ public class gameboyKeyListener implements KeyListener {
     
     /**
      * do nothing
+     * @param e Keyevent
      */ 
+    @Override
     public void keyTyped(KeyEvent e) {
         //dont do anything
     }
@@ -68,9 +70,10 @@ public class gameboyKeyListener implements KeyListener {
      * called whenever a key is typed, if maps to joypad controls
      * the memory at 0xff00 is updated 
      * 
+     * @param e keyevent
      */
+    @Override
     public void keyPressed(KeyEvent e) {
-        System.out.println(e.getKeyChar() + " Keypressed!");
         int currentJoyPad = memory.getJoyPadState();
         int joypadRequests = memory.readByte(0xff00);
         
@@ -90,6 +93,7 @@ public class gameboyKeyListener implements KeyListener {
         } else if (!isSet(joypadRequests, 5)) {
             cpu.requestInterrupt(4);
         }
+//        System.out.println(Integer.toBinaryString(currentJoyPad));
         memory.updateJoyPadState(currentJoyPad);
     }
 
@@ -97,9 +101,10 @@ public class gameboyKeyListener implements KeyListener {
      * Called whenever a key is released, if matches a joypad
      * key the memory at 0xff00 is updated
      * 
+     * @param e Keyevent
      */ 
+    @Override
     public void keyReleased(KeyEvent e) {
-        System.out.println(e.getKeyChar() + "KeyReleased!");
         int currentJoyPad = memory.getJoyPadState();
         int key_num = getKeyNum(e);
         if (key_num != -1) {
