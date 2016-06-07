@@ -24,6 +24,7 @@ public class CPU {
 
     //for debugging    
     private GPU gpu;
+    private boolean debug;
     
     //associated memory to use with CPU
     private final GBMem memory;
@@ -46,10 +47,23 @@ public class CPU {
         timerCounter = 1024;
         divideCounter = clockSpeed / 16382;
         interruptsEnabled = false;
+        
+        debug = false;
     }
     
+    /**
+     * for debug mode
+     * 
+     */ 
     public void setGPU(GPU gpu) {
         this.gpu = gpu;
+    }
+    
+    /**
+     * returns registers (for testing)
+     */ 
+    public GBRegisters getReg() {
+        return registers;
     }
     
     /**
@@ -59,11 +73,11 @@ public class CPU {
      */ 
     public int ExecuteOpcode() {
 
-        if (pc == 0x353) {
-            enterDebugMode();
-        }
+//        if (pc == 0x36f && !debug) {
+//            enterDebugMode();
+//        }
 
-        System.out.println(Integer.toHexString(pc));
+//        System.out.println(Integer.toHexString(pc));
         int opcode = memory.readByte(pc);
         pc++;
 
@@ -81,6 +95,7 @@ public class CPU {
      * 
      */ 
     private void enterDebugMode() {
+        debug = true;
         Scanner sc = new Scanner(System.in);
         String input;
         System.out.print(" > ");
@@ -487,6 +502,16 @@ public class CPU {
             case 0x1c: return rrN(GBRegisters.Reg.H);
             case 0x1d: return rrN(GBRegisters.Reg.L);
             case 0x1e: return rrN(GBRegisters.Reg.HL);
+            //SLA n
+            case 0x27: return slAN(GBRegisters.Reg.A);
+            case 0x20: return slAN(GBRegisters.Reg.B);
+            case 0x21: return slAN(GBRegisters.Reg.C);
+            case 0x22: return slAN(GBRegisters.Reg.D);
+            case 0x23: return slAN(GBRegisters.Reg.E);
+            case 0x24: return slAN(GBRegisters.Reg.H);
+            case 0x25: return slAN(GBRegisters.Reg.L);
+            case 0x26: return slAN(GBRegisters.Reg.HL);
+            
             //SRA n
             case 0x2f: return srAL(GBRegisters.Reg.A, false);
             case 0x28: return srAL(GBRegisters.Reg.B, false);
@@ -1922,7 +1947,7 @@ public class CPU {
             registers.setC();
         } 
         if ((reg & 0xff) == 0) {
-            registers.setZ();
+//            registers.setZ();
         }
         
         registers.setReg(GBRegisters.Reg.A, reg);
@@ -1934,7 +1959,7 @@ public class CPU {
      * Rotate A left through Carry Flag
      * 
      * Flags Affected:
-     * Z - Set if result is 0
+     * Z - Set if result is 0 (reset?)
      * N,H - Reset
      * C - contains old bit 7 data
      * 
@@ -1953,7 +1978,7 @@ public class CPU {
             registers.setC();
         } 
         if ((reg & 0xff) == 0) {
-            registers.setZ();
+//            registers.setZ();
         }
         
         registers.setReg(GBRegisters.Reg.A, reg);
@@ -1985,7 +2010,7 @@ public class CPU {
             registers.setC();
         } 
         if ((reg & 0xff) == 0) {
-            registers.setZ();
+//            registers.setZ();
         }
         
         registers.setReg(GBRegisters.Reg.A, reg);
@@ -2018,7 +2043,7 @@ public class CPU {
             registers.setC();
         } 
         if ((reg & 0xff) == 0) {
-            registers.setZ();
+//            registers.setZ();
         }
         
         registers.setReg(GBRegisters.Reg.A, reg);
@@ -2117,7 +2142,7 @@ public class CPU {
     }
 
     /**
-     * RLC n
+     * RrCn n
      * 
      * Rotate n Right. Old bit 0 to carry flag
      * 
@@ -2206,8 +2231,45 @@ public class CPU {
         return cycles;
     }
     
-    
-    
+    /**
+     * Shift n left into Carry, lsb of n set to 0
+     * 
+     * Flags
+     * Z - set if 0
+     * HN - reset
+     * C - contains old bit 7 data
+     */ 
+    private int slAN(GBRegisters.Reg reg) {
+        int cycles;
+        int data;
+        
+        if (reg == GBRegisters.Reg.HL) {
+            data = memory.readByte(registers.getReg(reg));
+            cycles = 16;
+        } else {
+            data = registers.getReg(reg);
+            cycles = 8;
+        }
+        
+        data = data << 1;
+        
+        registers.resetAll();
+        if (((data >> 8) & 0x1) == 0) {
+            registers.setC();
+        }
+        if (data == 0) {
+            registers.setZ();
+        }
+        
+        if (reg == GBRegisters.Reg.HL) {
+            memory.writeByte(registers.getReg(reg), data);
+        } else {
+            registers.setReg(reg, data);
+        }        
+        
+        return cycles;
+    }
+        
     /**
      * SRA n/SRL n
      * 
@@ -2259,7 +2321,7 @@ public class CPU {
      * 
      * 
      */ 
-    private void dumpRegisters() {
+    public void dumpRegisters() {
         System.out.println("AF: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.AF)));
         System.out.println("BC: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.BC)));
         System.out.println("DE: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.DE)));
@@ -2430,6 +2492,8 @@ public class CPU {
         int flags = memory.readByte(0xff0f);
         flags = setBit(1, id, flags);
         memory.writeByte(0xff0f, flags);
+        System.out.println("requestedInterrupt " + id + "wrote :" + Integer.toBinaryString(flags));
+        checkInterrupts(); //TODO???
     }
     
     /**
@@ -2438,17 +2502,21 @@ public class CPU {
      */ 
     private void checkInterrupts() {
         if (!interruptsEnabled) {
+//            System.out.println("Interrupts disabled");
             return;
         }
-        
+        System.out.println("Interrupts enabled and checking");
         int requests = memory.readByte(0xff0f);
+        System.out.println("Requests: 0b" + Integer.toBinaryString(requests));
         if (requests == 0) {
             return; //no interrupts to service
         }
         //service interrupts
         int interruptEnable = memory.readByte(0xffff);
+        System.out.println("Enable: 0b" + Integer.toBinaryString(interruptEnable));
         for (int i = 0; i < 5; ++i) {
             if (isSet(requests, i) && isSet(interruptEnable, i)) {
+                System.out.println("Interrupting!" + i);
                 handleInterrupt(i);
             }
         }
@@ -2477,6 +2545,7 @@ public class CPU {
         
         switch (id) {
             case 0: pc = 0x40;
+                    System.out.println("Vblank interrupt");
                     break;
             case 1: pc = 0x48;
                     break;
@@ -2504,9 +2573,13 @@ public class CPU {
      * enables interrupts
      */ 
     private int enableInterrupts() {
+        System.out.println("Interrupts enabled");
         interruptsEnabled = true;
         return 4;
     }
+    
+    
+    
     
     
 }
