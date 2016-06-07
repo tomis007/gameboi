@@ -24,10 +24,17 @@
 package gameboi;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -84,22 +91,20 @@ public class CPUTest {
         System.out.println("ExecuteOpcode");
         
         //read number of tests from gb_testfile
-        String line = "0";
+        String line;
         try (
-            BufferedReader br = new BufferedReader(new FileReader(gbTestProgramData))) {
-            line = br.readLine();
-        } catch (IOException e) {
-            System.err.println("Invalid GB_TESTFILE FORMAT: " + e.getMessage());
-            System.exit(1);
-        }
-        
-        int num_tests = Integer.parseInt(line);
-        
-        for (int i = 0; i < num_tests; ++i) {
-            //run opcode
+            InputStream fis = new FileInputStream(gbTestProgramData);
+            InputStreamReader isr = new InputStreamReader(fis, Charset.forName("UTF-8"));
+            BufferedReader br = new BufferedReader(isr);
+        ) {
+            while ((line = br.readLine()) != null) {
+                z80.ExecuteOpcode();
+                
             //dump registers
             //check against gb test program data file
-            //make sure it worked
+           }
+        } catch (java.io.IOException e) {
+            System.err.println("Invalid GBTESTFILE FORMAT!");
         }
     }
 
