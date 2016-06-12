@@ -33,6 +33,21 @@ public class CPU {
     private int divideCounter;
     private boolean interruptsEnabled;
     
+    //constants 
+    private static final GBRegisters.Reg A = GBRegisters.Reg.A;
+    private static final GBRegisters.Reg B = GBRegisters.Reg.B;
+    private static final GBRegisters.Reg C = GBRegisters.Reg.C;
+    private static final GBRegisters.Reg D = GBRegisters.Reg.D;
+    private static final GBRegisters.Reg E = GBRegisters.Reg.E;
+    private static final GBRegisters.Reg F = GBRegisters.Reg.F;
+    private static final GBRegisters.Reg H = GBRegisters.Reg.H;
+    private static final GBRegisters.Reg L = GBRegisters.Reg.L;
+    private static final GBRegisters.Reg HL = GBRegisters.Reg.HL;
+    private static final GBRegisters.Reg BC = GBRegisters.Reg.BC;
+    private static final GBRegisters.Reg DE = GBRegisters.Reg.DE;
+    private static final GBRegisters.Reg AF = GBRegisters.Reg.AF;
+    
+    
     /**
      * Constructor for gameboy z80 CPU
      * 
@@ -138,14 +153,14 @@ public class CPU {
             case 0x26: return eightBitLdNnN(GBRegisters.Reg.H);
             case 0x2e: return eightBitLdNnN(GBRegisters.Reg.L);
             //LD r1,r2
-            case 0x7f: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.A);
-            case 0x78: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.B);
-            case 0x79: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.C);
-            case 0x7a: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.D);
-            case 0x7b: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.E);
-            case 0x7c: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.H);
-            case 0x7d: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.L);
-            case 0x7e: return eightBitLdR1R2(GBRegisters.Reg.A, GBRegisters.Reg.HL);
+            case 0x7f: return eightBitLdR1R2(A, A);
+            case 0x78: return eightBitLdR1R2(A, GBRegisters.Reg.B);
+            case 0x79: return eightBitLdR1R2(A, GBRegisters.Reg.C);
+            case 0x7a: return eightBitLdR1R2(A, GBRegisters.Reg.D);
+            case 0x7b: return eightBitLdR1R2(A, GBRegisters.Reg.E);
+            case 0x7c: return eightBitLdR1R2(A, GBRegisters.Reg.H);
+            case 0x7d: return eightBitLdR1R2(A, GBRegisters.Reg.L);
+            case 0x7e: return eightBitLdR1R2(A, GBRegisters.Reg.HL);
             case 0x40: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.B);
             case 0x41: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.C);
             case 0x42: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.D);
@@ -202,15 +217,15 @@ public class CPU {
             case 0xfa: return eightBitALoadMem(true);
             case 0x3e: return eightBitALoadMem(false);
             // LD n,A
-            case 0x47: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.A);
-            case 0x4f: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.A);
-            case 0x57: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.A);
-            case 0x5f: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.A);
-            case 0x67: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.A);
-            case 0x6f: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.A);
-            case 0x02: return eightBitLdR1R2(GBRegisters.Reg.BC, GBRegisters.Reg.A);
-            case 0x12: return eightBitLdR1R2(GBRegisters.Reg.DE, GBRegisters.Reg.A);
-            case 0x77: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.A);
+            case 0x47: return eightBitLdR1R2(GBRegisters.Reg.B, A);
+            case 0x4f: return eightBitLdR1R2(GBRegisters.Reg.C, A);
+            case 0x57: return eightBitLdR1R2(GBRegisters.Reg.D, A);
+            case 0x5f: return eightBitLdR1R2(GBRegisters.Reg.E, A);
+            case 0x67: return eightBitLdR1R2(GBRegisters.Reg.H, A);
+            case 0x6f: return eightBitLdR1R2(GBRegisters.Reg.L, A);
+            case 0x02: return eightBitLdR1R2(GBRegisters.Reg.BC, A);
+            case 0x12: return eightBitLdR1R2(GBRegisters.Reg.DE, A);
+            case 0x77: return eightBitLdR1R2(GBRegisters.Reg.HL, A);
             case 0xea: return eightBitLoadToMem();
             // LD A, (C)
             case 0xf2: return eightBitLDfromAC();
@@ -239,7 +254,7 @@ public class CPU {
             //LD (nn), SP
             case 0x08: return sixteenBitLdNnSp();
             //Push nn to stack
-            case 0xf5: return pushNN(GBRegisters.Reg.AF);
+            case 0xf5: return pushNN(AF);
             case 0xc5: return pushNN(GBRegisters.Reg.BC);
             case 0xd5: return pushNN(GBRegisters.Reg.DE);
             case 0xe5: return pushNN(GBRegisters.Reg.HL);
@@ -776,7 +791,7 @@ public class CPU {
     
     
     /**
-     * Put value r2 into r2.
+     * Put value r1 into r2.
      * 
      * <p> Use with: r1,r2 = A,B,C,D,E,H,L,(HL)
      * 
@@ -812,8 +827,13 @@ public class CPU {
     
     
     /**
-     * Special function for opcode 0xea
+     * LD n,a
+     * put value A into n
+     * (nn) is two byte immediate value pointing to address
+     * to write data
      * 
+     * LSB is first
+     * Special function for opcode 0xea
      */ 
     private int eightBitLoadToMem() {
         int address = memory.readByte(pc);
