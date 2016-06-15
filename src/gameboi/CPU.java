@@ -312,7 +312,7 @@ public class CPU {
             case 0x9e: return subAN(GBRegisters.Reg.HL, true, false);
             case 0xde: return subAN(A, true, true);
             //AND N
-            case 0xa7: return andN(GBRegisters.Reg.A, false);
+            case 0xa7: return andN(A, false);
             case 0xa0: return andN(GBRegisters.Reg.B, false);
             case 0xa1: return andN(GBRegisters.Reg.C, false);
             case 0xa2: return andN(GBRegisters.Reg.D, false);
@@ -320,9 +320,9 @@ public class CPU {
             case 0xa4: return andN(GBRegisters.Reg.H, false);
             case 0xa5: return andN(GBRegisters.Reg.L, false);
             case 0xa6: return andN(GBRegisters.Reg.HL, false);
-            case 0xe6: return andN(GBRegisters.Reg.A, true);
+            case 0xe6: return andN(A, true);
             //OR N
-            case 0xb7: return orN(GBRegisters.Reg.A, false);
+            case 0xb7: return orN(A, false);
             case 0xb0: return orN(GBRegisters.Reg.B, false);            
             case 0xb1: return orN(GBRegisters.Reg.C, false);
             case 0xb2: return orN(GBRegisters.Reg.D, false);            
@@ -330,9 +330,9 @@ public class CPU {
             case 0xb4: return orN(GBRegisters.Reg.H, false);            
             case 0xb5: return orN(GBRegisters.Reg.L, false);            
             case 0xb6: return orN(GBRegisters.Reg.HL, false);
-            case 0xf6: return orN(GBRegisters.Reg.A, true);         
+            case 0xf6: return orN(A, true);         
             // XOR n
-            case 0xaf: return xorN(GBRegisters.Reg.A, false);
+            case 0xaf: return xorN(A, false);
             case 0xa8: return xorN(GBRegisters.Reg.B, false);            
             case 0xa9: return xorN(GBRegisters.Reg.C, false);
             case 0xaa: return xorN(GBRegisters.Reg.D, false);
@@ -340,9 +340,9 @@ public class CPU {
             case 0xac: return xorN(GBRegisters.Reg.H, false);
             case 0xad: return xorN(GBRegisters.Reg.L, false);
             case 0xae: return xorN(GBRegisters.Reg.HL, false);
-            case 0xee: return xorN(GBRegisters.Reg.A, true);
+            case 0xee: return xorN(A, true);
             // CP n
-            case 0xbf: return cpN(GBRegisters.Reg.A, false);
+            case 0xbf: return cpN(A, false);
             case 0xb8: return cpN(GBRegisters.Reg.B, false);
             case 0xb9: return cpN(GBRegisters.Reg.C, false);
             case 0xba: return cpN(GBRegisters.Reg.D, false);
@@ -350,9 +350,9 @@ public class CPU {
             case 0xbc: return cpN(GBRegisters.Reg.H, false);
             case 0xbd: return cpN(GBRegisters.Reg.L, false);    
             case 0xbe: return cpN(GBRegisters.Reg.HL, false);    
-            case 0xfe: return cpN(GBRegisters.Reg.A, true);
+            case 0xfe: return cpN(A, true);
             // INC n
-            case 0x3c: return incN(GBRegisters.Reg.A);
+            case 0x3c: return incN(A);
             case 0x04: return incN(GBRegisters.Reg.B);    
             case 0x0c: return incN(GBRegisters.Reg.C);
             case 0x14: return incN(GBRegisters.Reg.D);            
@@ -361,7 +361,7 @@ public class CPU {
             case 0x2c: return incN(GBRegisters.Reg.L);            
             case 0x34: return incN(GBRegisters.Reg.HL);
             // DEC n
-            case 0x3d: return decN(GBRegisters.Reg.A);
+            case 0x3d: return decN(A);
             case 0x05: return decN(GBRegisters.Reg.B);
             case 0x0d: return decN(GBRegisters.Reg.C);            
             case 0x15: return decN(GBRegisters.Reg.D);            
@@ -1146,7 +1146,7 @@ public class CPU {
             toAdd = memory.readByte(pc);
             pc++;
             cycles = 8;
-        } else if (src == GBRegisters.Reg.HL) {
+        } else if (src == HL) {
             toAdd = memory.readByte(registers.getReg(src));
             cycles = 8;
         } else {
@@ -1246,16 +1246,16 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
-        } else if (src == GBRegisters.Reg.HL) {
-            data = registers.getReg(src);
+        } else if (src == HL) {
+            data = memory.readByte(registers.getReg(src));
             cycles = 8;
         } else {
             data = registers.getReg(src);
             cycles = 4;
         }
         
-        int regA = registers.getReg(GBRegisters.Reg.A);
-        registers.setReg(GBRegisters.Reg.A, data & regA);
+        int regA = registers.getReg(A);
+        registers.setReg(A, data & regA);
         
         registers.resetAll();
         if ((data & regA) == 0) {
@@ -1287,16 +1287,16 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
-        } else if (src == GBRegisters.Reg.HL) {
-            data = registers.getReg(src);
+        } else if (src == HL) {
+            data = memory.readByte(registers.getReg(src));
             cycles = 8;
         } else {
             data = registers.getReg(src);
             cycles = 4;
         }
         
-        int regA = registers.getReg(GBRegisters.Reg.A);
-        registers.setReg(GBRegisters.Reg.A, data | regA);
+        int regA = registers.getReg(A);
+        registers.setReg(A, data | regA);
 
         registers.resetAll();
         if ((data | regA) == 0) {
@@ -1327,16 +1327,16 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
-        } else if (src == GBRegisters.Reg.HL) {
-            data = registers.getReg(src);
+        } else if (src == HL) {
+            data = memory.readByte(registers.getReg(src));
             cycles = 8;
         } else {
             data = registers.getReg(src);
             cycles = 4;
         }
         
-        int regA = registers.getReg(GBRegisters.Reg.A);
-        registers.setReg(GBRegisters.Reg.A, data ^ regA);
+        int regA = registers.getReg(A);
+        registers.setReg(A, data ^ regA);
         
         registers.resetAll();
         if ((data ^ regA) == 0) {
@@ -1371,25 +1371,25 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
-        } else if (src == GBRegisters.Reg.HL) {
-            data = registers.getReg(src);
+        } else if (src == HL) {
+            data = memory.readByte(registers.getReg(src));
             cycles = 8;
         } else {
             data = registers.getReg(src);
             cycles = 4;
         }
 
-        int regA = registers.getReg(GBRegisters.Reg.A);
+        int regA = registers.getReg(A);
 
         registers.resetAll();
-        if (((regA - data) & 0xff) == 0) {
+        if (regA == data) {
             registers.setZ();
         }
         registers.setN();
-        if ((regA & 0xf) - (data & 0xf) < 0) {
+        if ((regA & 0xf) < (data & 0xf)) {
             registers.setH();
         }
-        if (regA < data) {
+        if (regA > data) { //TODO!!! NOTE NOT REALLY SURE??????
             registers.setC();
         }
         return cycles;
@@ -1409,12 +1409,17 @@ public class CPU {
      * @param src (required) register to increment
      */ 
     private int incN(GBRegisters.Reg src) {
-        int reg = registers.getReg(src);
-        registers.setReg(src, reg + 1);
-        
-        
+        int reg;
+        if (src == HL) {
+            reg = memory.readByte(registers.getReg(src));
+            memory.writeByte(registers.getReg(src), reg + 1);
+        } else {
+            reg = registers.getReg(src);
+            registers.setReg(src, reg + 1);
+        }
+ 
         registers.resetZ();
-        if (registers.getReg(src) == 0) {
+        if (((reg + 1) & 0xff) == 0) {
             registers.setZ();
         }
         registers.resetN();
@@ -1423,7 +1428,7 @@ public class CPU {
             registers.setH();
         }
         
-        return (src == GBRegisters.Reg.HL) ? 12 : 4;
+        return (src == HL) ? 12 : 4;
     }
     
     /**
@@ -1439,20 +1444,28 @@ public class CPU {
      * @param src (required) register to decrement
      */ 
     private int decN(GBRegisters.Reg src) {
-        int reg = registers.getReg(src);
-       registers.setReg(src, reg - 1);
+        int reg;
+        if (src == HL) {
+            reg = memory.readByte(registers.getReg(src));
+            reg = (reg != 0) ? reg - 1 : 0;
+            memory.writeByte(registers.getReg(src), reg);
+        } else {
+            reg = registers.getReg(src);
+            reg = (reg != 0) ? reg - 1 : 0;
+            registers.setReg(src, reg);
+        }
         
         registers.resetZ();
-        if (registers.getReg(src) == 0) {
+        if (reg == 0) {
             registers.setZ();
         }
         registers.setN();
         registers.resetH();
-        if (((reg & 0xf) - 1) < 0) {
+        if (((reg & 0xf) - 1) >= 0) { //NOTE UNSURE...
             registers.setH();
         }
         
-        return (src == GBRegisters.Reg.HL) ? 12 : 4;
+        return (src == HL) ? 12 : 4;
     }
     
     
