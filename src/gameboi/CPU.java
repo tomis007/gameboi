@@ -151,69 +151,69 @@ public class CPU {
 
             /*****8 BIT LOADS*****/
             // LD nn,n
-            case 0x06: return eightBitLdNnN(GBRegisters.Reg.B);
-            case 0x0e: return eightBitLdNnN(GBRegisters.Reg.C);
-            case 0x16: return eightBitLdNnN(GBRegisters.Reg.D);
-            case 0x1e: return eightBitLdNnN(GBRegisters.Reg.E);
-            case 0x26: return eightBitLdNnN(GBRegisters.Reg.H);
-            case 0x2e: return eightBitLdNnN(GBRegisters.Reg.L);
+            case 0x06: return eightBitLdNnN(B);
+            case 0x0e: return eightBitLdNnN(C);
+            case 0x16: return eightBitLdNnN(D);
+            case 0x1e: return eightBitLdNnN(E);
+            case 0x26: return eightBitLdNnN(H);
+            case 0x2e: return eightBitLdNnN(L);
             //LD r1,r2
             case 0x7f: return eightBitLdR1R2(A, A);
-            case 0x78: return eightBitLdR1R2(A, GBRegisters.Reg.B);
-            case 0x79: return eightBitLdR1R2(A, GBRegisters.Reg.C);
-            case 0x7a: return eightBitLdR1R2(A, GBRegisters.Reg.D);
-            case 0x7b: return eightBitLdR1R2(A, GBRegisters.Reg.E);
-            case 0x7c: return eightBitLdR1R2(A, GBRegisters.Reg.H);
-            case 0x7d: return eightBitLdR1R2(A, GBRegisters.Reg.L);
-            case 0x7e: return eightBitLdR1R2(A, GBRegisters.Reg.HL);
-            case 0x40: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.B);
-            case 0x41: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.C);
-            case 0x42: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.D);
-            case 0x43: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.E);
-            case 0x44: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.H);
-            case 0x45: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.L);
-            case 0x46: return eightBitLdR1R2(GBRegisters.Reg.B, GBRegisters.Reg.HL);
-            case 0x48: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.B);
-            case 0x49: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.C);
-            case 0x4a: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.D);
-            case 0x4b: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.E);
-            case 0x4c: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.H);
-            case 0x4d: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.L);
-            case 0x4e: return eightBitLdR1R2(GBRegisters.Reg.C, GBRegisters.Reg.HL);
-            case 0x50: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.B);
-            case 0x51: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.C);
-            case 0x52: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.D);
-            case 0x53: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.E);
-            case 0x54: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.H);
-            case 0x55: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.L);
-            case 0x56: return eightBitLdR1R2(GBRegisters.Reg.D, GBRegisters.Reg.HL);
-            case 0x58: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.B);
-            case 0x59: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.C);
-            case 0x5a: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.D);
-            case 0x5b: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.E);
-            case 0x5c: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.H);
-            case 0x5d: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.L);
-            case 0x5e: return eightBitLdR1R2(GBRegisters.Reg.E, GBRegisters.Reg.HL);
-            case 0x60: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.B);
-            case 0x61: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.C);
-            case 0x62: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.D);
-            case 0x63: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.E);
-            case 0x64: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.H);
-            case 0x65: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.L);
-            case 0x66: return eightBitLdR1R2(GBRegisters.Reg.H, GBRegisters.Reg.HL);
-            case 0x68: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.B);
-            case 0x69: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.C);
-            case 0x6a: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.D);
-            case 0x6b: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.E);
-            case 0x6c: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.H);
-            case 0x6d: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.L);
-            case 0x6e: return eightBitLdR1R2(GBRegisters.Reg.L, GBRegisters.Reg.HL);
-            case 0x70: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.B);
-            case 0x71: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.C);
-            case 0x72: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.D);
-            case 0x73: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.E);
-            case 0x74: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.H);
-            case 0x75: return eightBitLdR1R2(GBRegisters.Reg.HL, GBRegisters.Reg.L);
+            case 0x78: return eightBitLdR1R2(A, B);
+            case 0x79: return eightBitLdR1R2(A, C);
+            case 0x7a: return eightBitLdR1R2(A, D);
+            case 0x7b: return eightBitLdR1R2(A, E);
+            case 0x7c: return eightBitLdR1R2(A, H);
+            case 0x7d: return eightBitLdR1R2(A, L);
+            case 0x7e: return eightBitLdR1R2(A, HL);
+            case 0x40: return eightBitLdR1R2(B, B);
+            case 0x41: return eightBitLdR1R2(B, C);
+            case 0x42: return eightBitLdR1R2(B, D);
+            case 0x43: return eightBitLdR1R2(B, E);
+            case 0x44: return eightBitLdR1R2(B, H);
+            case 0x45: return eightBitLdR1R2(B, L);
+            case 0x46: return eightBitLdR1R2(B, HL);
+            case 0x48: return eightBitLdR1R2(C, B);
+            case 0x49: return eightBitLdR1R2(C, C);
+            case 0x4a: return eightBitLdR1R2(C, D);
+            case 0x4b: return eightBitLdR1R2(C, E);
+            case 0x4c: return eightBitLdR1R2(C, H);
+            case 0x4d: return eightBitLdR1R2(C, L);
+            case 0x4e: return eightBitLdR1R2(C, HL);
+            case 0x50: return eightBitLdR1R2(D, B);
+            case 0x51: return eightBitLdR1R2(D, C);
+            case 0x52: return eightBitLdR1R2(D, D);
+            case 0x53: return eightBitLdR1R2(D, E);
+            case 0x54: return eightBitLdR1R2(D, H);
+            case 0x55: return eightBitLdR1R2(D, L);
+            case 0x56: return eightBitLdR1R2(D, HL);
+            case 0x58: return eightBitLdR1R2(E, B);
+            case 0x59: return eightBitLdR1R2(E, C);
+            case 0x5a: return eightBitLdR1R2(E, D);
+            case 0x5b: return eightBitLdR1R2(E, E);
+            case 0x5c: return eightBitLdR1R2(E, H);
+            case 0x5d: return eightBitLdR1R2(E, L);
+            case 0x5e: return eightBitLdR1R2(E, HL);
+            case 0x60: return eightBitLdR1R2(H, B);
+            case 0x61: return eightBitLdR1R2(H, C);
+            case 0x62: return eightBitLdR1R2(H, D);
+            case 0x63: return eightBitLdR1R2(H, E);
+            case 0x64: return eightBitLdR1R2(H, H);
+            case 0x65: return eightBitLdR1R2(H, L);
+            case 0x66: return eightBitLdR1R2(H, HL);
+            case 0x68: return eightBitLdR1R2(L, B);
+            case 0x69: return eightBitLdR1R2(L, C);
+            case 0x6a: return eightBitLdR1R2(L, D);
+            case 0x6b: return eightBitLdR1R2(L, E);
+            case 0x6c: return eightBitLdR1R2(L, H);
+            case 0x6d: return eightBitLdR1R2(L, L);
+            case 0x6e: return eightBitLdR1R2(L, HL);
+            case 0x70: return eightBitLdR1R2(HL, B);
+            case 0x71: return eightBitLdR1R2(HL, C);
+            case 0x72: return eightBitLdR1R2(HL, D);
+            case 0x73: return eightBitLdR1R2(HL, E);
+            case 0x74: return eightBitLdR1R2(HL, H);
+            case 0x75: return eightBitLdR1R2(HL, L);
             // special 8 bit load from memory
             case 0x36: return eightBitLoadFromMem();
             // LD A,n
@@ -389,7 +389,7 @@ public class CPU {
 
             // extended
             case 0xcb: return extendedOpcode();
-            // DAA, PROBABLY NOT CORRECT
+            // DAA, PROBABLY NOT CORRECT TODO
             case 0x27: return decAdjust();
             //CPL
             case 0x2f: return cplRegA();
@@ -1592,7 +1592,7 @@ public class CPU {
      */ 
     private int swapN(GBRegisters.Reg reg) {
         int data;
-        int cycles;
+
         if (reg == HL) {
             data = memory.readByte(registers.getReg(reg));
         } else {
@@ -1619,7 +1619,7 @@ public class CPU {
      * Decimal adjust register A
      * 
      * MIGHT NOT BE CORRECT...instructions vague 
-     * 
+     * TODO!!!!
      * Flags:
      * z - Set if A is zero
      * N - Not affected
@@ -1658,10 +1658,10 @@ public class CPU {
      * (toggles all bits)
      */ 
     private int cplRegA() {
-        int reg = registers.getReg(GBRegisters.Reg.A);
+        int reg = registers.getReg(A);
         reg = ~reg;
         
-        registers.setReg(GBRegisters.Reg.A, reg & 0xffff);
+        registers.setReg(A, reg & 0xffff);
         return 4;
     }
     
@@ -2612,6 +2612,8 @@ public class CPU {
      * EI 
      * 
      * enables interrupts
+     * 
+     * TODO read one more opcode
      */ 
     private int enableInterrupts() {
         System.out.println("Interrupts enabled");
