@@ -477,7 +477,7 @@ public class CPU {
         
         switch(opcode) {
             //SWAP N
-            case 0x37: return swapN(GBRegisters.Reg.A);
+            case 0x37: return swapN(A);
             case 0x30: return swapN(GBRegisters.Reg.B);
             case 0x31: return swapN(GBRegisters.Reg.C);
             case 0x32: return swapN(GBRegisters.Reg.D);
@@ -1591,32 +1591,28 @@ public class CPU {
      * @param reg (required) register to swap
      */ 
     private int swapN(GBRegisters.Reg reg) {
-        int data = registers.getReg(reg);
-        
-        registers.resetAll();
-        if (reg == GBRegisters.Reg.HL) {
-            int lowNib = data & 0xf;
-            int highNib = (data & 0xf000) >> 12;
-            int midByte = (data & 0x0ff0) >> 4;
-            
-            data = (lowNib << 12) | (midByte << 4) | highNib;
-            registers.setReg(reg, data);
-            
-            if (data == 0) {
-                registers.setZ();
-            }
-            return 16;
+        int data;
+        int cycles;
+        if (reg == HL) {
+            data = memory.readByte(registers.getReg(reg));
         } else {
-            int lowNib = data & 0xf;
-            int highNib = (data & 0xf0) >> 4;
-            registers.setReg(reg, highNib | (lowNib << 4));
-            
-            if ((highNib | (lowNib << 4)) == 0) {
-                registers.setZ();
-            }
-            return 8;
+            data = registers.getReg(reg);
         }
-    }
+
+        int lowNib = data & 0xf;
+        int highNib = (data & 0xf0) >> 4;
+        data = highNib | (lowNib << 4);
+        if (reg == HL) {
+            memory.writeByte(registers.getReg(reg), data);
+        } else {
+            registers.setReg(reg, data);
+        }
+        registers.resetAll();
+        if (data == 0) {
+            registers.setZ();
+        }
+        return (reg == HL) ? 16 : 8;
+   }
     
     
     /**
