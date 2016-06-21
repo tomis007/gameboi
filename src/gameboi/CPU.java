@@ -28,10 +28,27 @@ public class CPU {
     
     //associated memory to use with CPU
     private final GBMem memory;
+    
+    
     private final int clockSpeed;
     private int timerCounter;
     private int divideCounter;
-    private boolean interruptsEnabled;
+    
+    /**
+     * Interrupt state of cpu
+     */
+    private enum InterruptCpuState  {
+      DISABLED, DELAY_ON, DELAY_OFF, ENABLED;
+    }
+    //constants
+    private static final InterruptCpuState DISABLED = InterruptCpuState.DISABLED;
+    private static final InterruptCpuState DELAY_ON = InterruptCpuState.DELAY_ON;
+    private static final InterruptCpuState DELAY_OFF = InterruptCpuState.DELAY_OFF;
+    private static final InterruptCpuState ENABLED = InterruptCpuState.ENABLED;
+    
+    
+    private InterruptCpuState interruptState;
+    
     
     //constants 
     private static final GBRegisters.Reg A = GBRegisters.Reg.A;
@@ -66,8 +83,9 @@ public class CPU {
         clockSpeed = 4194304;
         timerCounter = 1024;
         divideCounter = clockSpeed / 16382;
-        interruptsEnabled = false;
-        
+        interruptState = DISABLED;
+
+
         debug = false;
     }
     
@@ -98,6 +116,12 @@ public class CPU {
 //        }
 
 //        System.out.println(Integer.toHexString(pc));
+        if (interruptState == DELAY_ON) {
+            interruptState = ENABLED;
+        } else if (interruptState == DELAY_OFF) {
+            interruptState = DISABLED;
+        }
+        
         int opcode = memory.readByte(pc);
         pc++;
 
@@ -105,7 +129,7 @@ public class CPU {
         updateDivideRegister(cycles);
         updateTimers(cycles);
         checkInterrupts();
-        
+
         return cycles;
     }
   
@@ -487,7 +511,7 @@ public class CPU {
             case 0x36: return swapN(GBRegisters.Reg.HL);
 
             //RLC n
-            case 0x07: return rlcN(GBRegisters.Reg.A);
+            case 0x07: return rlcN(A);
             case 0x00: return rlcN(GBRegisters.Reg.B);
             case 0x01: return rlcN(GBRegisters.Reg.C);
             case 0x02: return rlcN(GBRegisters.Reg.D);
@@ -804,12 +828,11 @@ public class CPU {
      * @param scr  source register
      */ 
     private int eightBitLdR1R2(GBRegisters.Reg dest, GBRegisters.Reg src) {
-        if (src == GBRegisters.Reg.HL) {
-            int data = memory.readByte(registers.getReg(GBRegisters.Reg.HL));
+        if (src == HL) {
+            int data = memory.readByte(registers.getReg(HL));
             registers.setReg(dest, data);
             return 8;
-        } else if ((dest == GBRegisters.Reg.HL) || (dest == GBRegisters.Reg.BC) ||
-                   (dest == GBRegisters.Reg.DE)) {
+        } else if ((dest == HL) || (dest == BC) || (dest == DE)) {
             memory.writeByte(registers.getReg(dest), registers.getReg(src));
             return 8;
         } else {
@@ -1881,7 +1904,7 @@ public class CPU {
      * enable interrupts
      */ 
     private int retI() {
-        interruptsEnabled = true;
+        interruptState = DELAY_ON;
         pc = popWordFromStack();
         return 8;
     }
@@ -2107,7 +2130,7 @@ public class CPU {
         int data;
         int cycles;
         
-        if (src == GBRegisters.Reg.HL) {
+        if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 16;
         } else {
@@ -2151,9 +2174,9 @@ public class CPU {
     private int rlN(GBRegisters.Reg src) {
         int data;
         int cycles;
-        int flags = registers.getReg(GBRegisters.Reg.F);
+        int flags = registers.getReg(F);
         
-        if (src == GBRegisters.Reg.HL) {
+        if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 16;
         } else {
@@ -2174,7 +2197,7 @@ public class CPU {
             registers.setC();
         }
         
-        if (src == GBRegisters.Reg.HL) {
+        if (src == HL) {
             memory.writeByte(registers.getReg(src), data);
         } else {
             registers.setReg(src, data);
@@ -2542,8 +2565,7 @@ public class CPU {
      * 
      */ 
     private void checkInterrupts() {
-        if (!interruptsEnabled) {
-//            System.out.println("Interrupts disabled");
+        if (interruptState != ENABLED) {
             return;
         }
         System.out.println("Interrupts enabled and checking");
@@ -2577,7 +2599,7 @@ public class CPU {
      * @param id interrupt to handle
      */ 
     private void handleInterrupt(int id) {
-        interruptsEnabled = false;
+        interruptState = DISABLED;
 
         int flags = memory.readByte(0xff0f);
         flags = setBit(0, id, flags);
@@ -2604,7 +2626,7 @@ public class CPU {
      * disables interrupts
      */ 
     private int disableInterrupts() {
-        interruptsEnabled = false;
+        interruptState = DELAY_OFF;
         return 4;
     }
     
@@ -2616,14 +2638,10 @@ public class CPU {
      * TODO read one more opcode
      */ 
     private int enableInterrupts() {
-        System.out.println("Interrupts enabled");
-        interruptsEnabled = true;
+        System.out.println("Interrupts set to enable after next instruction");
+        interruptState = DELAY_ON;
         return 4;
     }
-    
-    
-    
-    
-    
+   
 }
 
