@@ -34,10 +34,19 @@ import java.io.IOException;
  * @author tomis007
  */
 public class GBMem {
-    private int memory[];
-    private int cartridge[];
+    private int[] memory;
+    private int[] cartridge;
     private MemBanks memBank;
-    
+    private int[] vRam;
+    private int[] extRam;
+    private int[] wRam;
+    private int[] rom; //just for now without MBC (tetris/dr mario)
+    private int[] OAMTable;
+    private int[] IOPorts;
+    private int[] HRam;
+
+
+
     /**
      * KEY 7 - SELECT
      * KEY 6 - START
@@ -60,6 +69,14 @@ public class GBMem {
      */
     public GBMem(Path path) {
         memory = new int[0x10000];
+        this.rom = new int[0x8000];
+        vRam = new int[0x2000];
+        wRam = new int[0x2000];
+        OAMTable = new int[0xa0];
+        extRam = new int[0x2000];
+        IOPorts = new int[0x80];
+        HRam = new int[0x80];
+
 
         try {
             byte[] rom = Files.readAllBytes(path);
@@ -69,15 +86,35 @@ public class GBMem {
                 cartridge[i] = Byte.toUnsignedInt(rom[i]);
             }
             for (int i = 0; i < 0x8000 && i < rom.length; ++i) {
+                this.rom[i] = cartridge[i];
                 memory[i] = cartridge[i];
             }
-            
+            for (int i = 0x8000; i < 0xa000 && i < rom.length; ++i) {
+                vRam[i - 0x8000] = cartridge[i];
+            }
+            for (int i = 0xa000; i < 0xc000 && i < rom.length; ++i) {
+                extRam[i - 0xa000] = cartridge[i];
+            }
+            for (int i = 0xc000; i < 0xe000 && i < rom.length; ++i) {
+                wRam[i - 0xc000] = cartridge[i];
+            }
+            for (int i = 0xfe00; i < 0xfe9f && i < rom.length; ++i) {
+                OAMTable[i - 0xfe00] = cartridge[i];
+            }
             memBank = new MemBanks(cartridge);
+
         } catch (IOException e) {
             System.err.println("Caught IOException: " + e.getMessage());
             System.exit(1);
         }
         joyPadState = 0xff;
+
+
+        //all 0 for tetris
+//        System.out.println(memory[0x147]);
+//        System.out.println(memory[0x148]);
+//        System.out.println(memory[0x149]);
+//        System.exit(1);
         
         //initialize values in memory
         memory[0xff05] = 0x0;
@@ -111,11 +148,22 @@ public class GBMem {
         memory[0xff4a] = 0x0;
         memory[0xff4b] = 0x0;
         memory[0xffff] = 0x0;
+
+        for (int i = 0xff00; i < 0xff80; ++i) {
+            IOPorts[i - 0xff00] = memory[i];
+        }
+        for (int i = 0xff80; i < 0xffff; ++i) {
+            HRam[i - 0xff80] = memory[i];
+        }
+
     }
 
     /**
      * Read a 'byte' from memory.
-     * 
+     *
+     *
+     * NOTE: RIGHT NOW ONLY IMPLEMENTING FOR NO MEMORY BANKS
+     *
      * <p> Returns an int with the value of the byte stored in memory
      *     at address.
      * 
@@ -123,24 +171,50 @@ public class GBMem {
      * @return an int that is the value of the data stored in memory
      *     at address
      * @see GBMem
-     */ 
+     */
     public int readByte(int address) {
-        
+
         //for debugging
         if (address == 0xff80) {
-//            System.out.println("reading 0x" + memory[0xff80] + " from 0xff80");
+            System.out.println("reading 0x" + memory[0xff80] + " from 0xff80");
         }
-        
+
         if (address == 0xff00) {
+//            System.out.println("reading the joypad");
             return translateJoyPad();
-        } else if (((address >= 0x4000) && (address <= 0x7fff)) || 
-                ((address >= 0xa000) && (address <= 0xbfff))) {
-            //rom or ram banking
-            return memBank.readByte(address);
+        } else if (address < 0x8000) {
+            return rom[address];
+        } else if (address < 0xa000) {
+            return vRam[address - 0x8000];
+        } else if (address < 0xc000) {
+            return extRam[address - 0xa000];
+        } else if (address < 0xe000) {
+            return wRam[address - 0xc000];
+        } else if (address < 0xfe00) {
+            return wRam[address - 0xe000];
+        } else if (address < 0xfe9f) {
+            return OAMTable[address - 0xfe00];
+        } else if (address < 0xff00) {
+            return -1; // can't use this area
+        } else if (address < 0xff80){
+            return IOPorts[address - 0xff00];
+        } else if (address < 0x10000){
+            return HRam[address - 0xff80];
         } else {
-            return memory[address];
+            System.err.println("Ooops reading from invalid address");
+            return -1; //oops something went wrong
         }
+
     }
+
+//        } else if (((address >= 0x4000) && (address <= 0x7fff)) ||
+//                ((address >= 0xa000) && (address <= 0xbfff))) {
+            //rom or ram banking
+//            return memBank.readByte(address);
+//        } else {
+//            return memory[address];
+//        }
+//    }
 
     /**
      * Write a 'byte' to the gameboy memory.
@@ -154,19 +228,44 @@ public class GBMem {
      */ 
     public void writeByte(int address, int data) {
         //only store a byte in memory
-        data = data & 0xff;
+        data &= 0xff;
         
         //for debugging TODO
         if (address == 0xff80) {
-            return;
+            System.out.println("Writing to 0xff80");
         }
-        
-        if (address < 0) {
+        if (address == 0xff85) {
+            System.out.println("Writing to 0xff85: " + Integer.toBinaryString(data));
+        }
+
+        if (address < 0x8000) {
+            //ROM
+        } else if (address < 0xa000){
+            vRam[address - 0x8000] = data;
+        } else if (address < 0xc000) {
+            extRam[address - 0xa000] = data;
+        } else if (address < 0xe000) {
+            wRam[address - 0xc000] = data;
+        } else if (address < 0xfe00) {
+            wRam[address - 0xe000] = data; //ECHO
+        } else if (address < 0xfea0) {
+            OAMTable[address - 0xfe00] = data;
+        } else if (address < 0xff00) {
+            //cant do anything here
+        } else if (address < 0xff80) {
+            handleIOWriting(address, data);
+        } else if (address < 0x10000) {
+            HRam[address - 0xff80] = data;
+        }
+
+
+
+/*        if (address < 0) {
             System.err.println("ERROR: writing to negative address");
-            System.exit(1);
         } else if (address < 0x8000) {
             // can't write to ROM, but update banks
-            memBank.updateBanking(address, data);
+//            memBank.updateBanking(address, data);
+
         } else if ((address >= 0xfea0) && (address <= 0xfeff)) {
             // can't access this region
         } else if ((address >= 0xc000) && (address <= 0xde00)) {
@@ -188,7 +287,7 @@ public class GBMem {
             } else {
                 memory[address] = data;
             }
-        }
+        }*/
     }
     
     /**
@@ -199,16 +298,44 @@ public class GBMem {
     public int getScanLine() {
         return memory[0xff44];
     }
-    
-    
-    
+
+
     /**
-     * preforms a DMA transfer 
+     * handleIOWriting
+     *
+     * Writes a byte to the IO PORTs in memory
+     * Handles the reset cases for the registers stored here
+     *
+     * @param address
+     * @param data
+     */
+    private void handleIOWriting(int address, int data) {
+        int newAddress = address - 0xff00;
+        if (address == 0xff04) {
+            IOPorts[newAddress] = 0; //reset DIV register
+        } else if (address == 0xff44) {
+            IOPorts[newAddress] = 0; //reset LCDC y-Coordinate
+        } else if (address == 0xff46) {
+            DMATransfer(data);
+        } else {
+            IOPorts[newAddress] = data;
+        }
+    }
+
+
+
+    /**
+     * preforms a DMA transfer
+     *
+     * TODO (PROBABLY REALLY SLOW)
+     * @param data address to start copy at divided by 0x100
      */ 
     private void DMATransfer(int data) {
-        int address = data * 0x100;
+        int address = data << 8;
+
+        //TODO MAKE FASTER DUH
         for (int i = 0; i < 0xa0; ++i) {
-            memory[0xfe00 + i] = memory[address + 1];
+            OAMTable[i] = readByte(address + i);
         }
     }
     
@@ -218,6 +345,7 @@ public class GBMem {
      */ 
     public void setScanLine(int num) {
         memory[0xff44] = num;
+        IOPorts[0xff44 - 0xff00] = num;
     }  
     
     /**
@@ -225,6 +353,7 @@ public class GBMem {
      */ 
     public void incScanLine() {
         memory[0xff44]++;
+        IOPorts[0xff44 - 0xff00]++;
     }
     
     /**
@@ -233,6 +362,7 @@ public class GBMem {
      */ 
     public void incrementDivider() {
         memory[0xff04] = (memory[0xff04] + 1) & 0xff;
+        IOPorts[0x04] = (IOPorts[0x04] + 1) & 0xff;
     }
     
     
