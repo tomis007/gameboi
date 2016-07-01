@@ -36,6 +36,7 @@ public class CPU {
     
     /**
      * Interrupt state of cpu
+     * Represents the Interrupt Master Enable Flag
      */
     private enum InterruptCpuState  {
       DISABLED, DELAY_ON, DELAY_OFF, ENABLED;
@@ -50,6 +51,7 @@ public class CPU {
     private InterruptCpuState interruptState;
     
     
+
     //constants 
     private static final GBRegisters.Reg A = GBRegisters.Reg.A;
     private static final GBRegisters.Reg B = GBRegisters.Reg.B;
@@ -116,6 +118,8 @@ public class CPU {
 //        }
 
 //        System.out.println(Integer.toHexString(pc));
+
+        //handle interrupt state change
         if (interruptState == DELAY_ON) {
             interruptState = ENABLED;
         } else if (interruptState == DELAY_OFF) {
@@ -124,10 +128,12 @@ public class CPU {
         
         int opcode = memory.readByte(pc);
         pc++;
-
+//        System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
+//        System.out.println("Pc: 0x" + Integer.toHexString(pc));
+        
         int cycles = runInstruction(opcode);
-        updateDivideRegister(cycles);
-        updateTimers(cycles);
+        updateDivideRegister(cycles); //TODO
+        updateTimers(cycles); //TODO
         checkInterrupts();
 
         return cycles;
@@ -825,7 +831,7 @@ public class CPU {
      * <p> Use with: r1,r2 = A,B,C,D,E,H,L,(HL)
      * 
      * @param dest destination register
-     * @param scr  source register
+     * @param src  source register
      */ 
     private int eightBitLdR1R2(GBRegisters.Reg dest, GBRegisters.Reg src) {
         if (src == HL) {
@@ -1028,16 +1034,10 @@ public class CPU {
         // read two byte data from memory LSB first
         int data = memory.readByte(pc);
         pc++;
-        data = data | (memory.readByte(pc) << 8);
+        data = (memory.readByte(pc) << 8) | data;
         pc++;
-        switch(reg) {
-            case BC: registers.setReg(GBRegisters.Reg.BC, data);
-                     break;
-            case DE: registers.setReg(GBRegisters.Reg.DE, data);
-                     break;
-            case HL: registers.setReg(GBRegisters.Reg.HL, data);
-                     break;
-        }        
+        registers.setReg(reg, data);
+
         return 12;
     }
     
@@ -1394,6 +1394,7 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
+            System.out.println("comparing A: " + registers.getReg(A) + " to data: " + data);
         } else if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 8;
@@ -1720,7 +1721,7 @@ public class CPU {
     
     /**
      * Jump to address
-     * 
+     * LSB first
      */ 
     private int jump() {
         int address = memory.readByte(pc);
@@ -1840,7 +1841,7 @@ public class CPU {
     private int call() {
         int address = memory.readByte(pc);
         pc++;
-        address = address | (memory.readByte(pc) << 8);
+        address = (memory.readByte(pc) << 8) | address;
         pc++;
         pushWordToStack(pc);
         pc = address;
@@ -2547,9 +2548,13 @@ public class CPU {
      * id can be:
      * 0 - V-Blank interrupt
      * 1 - LCD Timer interrupt
-     * 2 - Timer interrupt 
+     * 2 - Timer interrupt
+     * 3 - (Serial) Not handled NOTE: TODO
      * 4 - Joypad interrupt
-     * 
+     *
+     * 0xff0f - IF Interrupt Flag
+     * 0xffff - IE Interrupt Enable
+     *
      * @param id interrupt to request
      */ 
     public void requestInterrupt(int id) {
@@ -2557,30 +2562,26 @@ public class CPU {
         flags = setBit(1, id, flags);
         memory.writeByte(0xff0f, flags);
         System.out.println("requestedInterrupt " + id + "wrote :" + Integer.toBinaryString(flags));
-        checkInterrupts(); //TODO???
+        checkInterrupts();
     }
     
     /**
      * Checks interrupts and services them if required
-     * 
-     */ 
+     */
     private void checkInterrupts() {
         if (interruptState != ENABLED) {
-            return;
+            return; //IME flag not set
         }
-        System.out.println("Interrupts enabled and checking");
-        int requests = memory.readByte(0xff0f);
-        System.out.println("Requests: 0b" + Integer.toBinaryString(requests));
-        if (requests == 0) {
-            return; //no interrupts to service
-        }
-        //service interrupts
+//        System.out.println("Interrupts enabled and checking");
+
+        int interruptFlag = memory.readByte(0xff0f);
         int interruptEnable = memory.readByte(0xffff);
-        System.out.println("Enable: 0b" + Integer.toBinaryString(interruptEnable));
-        for (int i = 0; i < 5; ++i) {
-            if (isSet(requests, i) && isSet(interruptEnable, i)) {
-                System.out.println("Interrupting!" + i);
-                handleInterrupt(i);
+//        System.out.println("Requests: 0b" + Integer.toBinaryString(requests));
+        if (interruptFlag > 0 && interruptEnable > 0) {
+            for (int i = 0; i < 5; ++i) {
+                if (isSet(interruptFlag, i) && isSet(interruptEnable, i)) {
+                    handleInterrupt(i);
+                }
             }
         }
     }
@@ -2599,8 +2600,10 @@ public class CPU {
      * @param id interrupt to handle
      */ 
     private void handleInterrupt(int id) {
+        //clear IME flag
         interruptState = DISABLED;
 
+        //reset the interrupt bit
         int flags = memory.readByte(0xff0f);
         flags = setBit(0, id, flags);
         memory.writeByte(0xff0f, flags);
@@ -2614,9 +2617,12 @@ public class CPU {
                     break;
             case 2: pc = 0x50;
                     break;
+            case 3: System.err.println("Requested a Serial interrupt...");
+                    break;
             case 4: pc = 0x60;
                     break;
-            default: break;
+            default: System.err.println("Invalid Interrupt Requested. Exiting");
+                     System.exit(1);
         }
     }
     
@@ -2638,7 +2644,7 @@ public class CPU {
      * TODO read one more opcode
      */ 
     private int enableInterrupts() {
-        System.out.println("Interrupts set to enable after next instruction");
+        System.out.println("enabled interrupts");
         interruptState = DELAY_ON;
         return 4;
     }
