@@ -49,16 +49,20 @@ public class GPU {
      * 456 clock cycles to draw each scanline
      */
     private int scanLineClock;
+
+
+
     /**
-     * contains current mode of the gpu
-     * 4 values
+     * GPU MODE
      * 2: Scanline (OAM) 80 cycles
      * 3: Scanline (VRAM) 172 cycles
      * 0: Horizontal Blank 204 cycles
      * 1: Vertical Blank 4560 cycles
      */ 
-    private int gpuMode;
-
+    private static final int OAM_MODE = 2;
+    private static final int VRAM_MODE = 3;
+    private static final int HORIZ_BLANK = 0;
+    private static final int VERT_BLANK = 1;
     
     /**
      * access to the cpu for requesting interrupts 
@@ -114,12 +118,13 @@ public class GPU {
      * @param cycles - clock cycles progressed since last update
      */ 
     public void updateGraphics(int cycles) {
-        updateLCDFlag();
+        updateLCDMode();
         
         if (!lcdEnabled()) {
-            return;
+            return; //don't need to do anything
         }
-        
+
+
         scanLineClock -= cycles;
         //not time to update scanline yet
         if (scanLineClock > 0) {
@@ -127,21 +132,19 @@ public class GPU {
         }
         
         int currentScanLine = memory.getScanLine();
-//        System.out.println(currentScanLine);
         if (currentScanLine == 144) {
-            System.out.println("current scanline == 144, interrupting");
-            cpu.requestInterrupt(0);
+            cpu.requestInterrupt(0); //vertical blank interrupt TODO
         } else if (currentScanLine > 152) {
             lcdscreen.repaint();
             memory.setScanLine(0);
-            scanLineClock = 456; //ugh bad bug
+            scanLineClock = 456; //account for vertical blank timing TODO
         } else if (currentScanLine < 144) {
             renderScan();
         }
+
         if (currentScanLine <= 152) {
             memory.incScanLine();
         }
-        
     }
     
     
@@ -159,10 +162,7 @@ public class GPU {
      * renderScan()
      * 
      * Renders current scanline for the gpu
-     * 
-     * 
-     * 
-     */ 
+     */
     private void renderScan() {
         // get flags
         lcdc = memory.readByte(0xff40);
@@ -181,11 +181,12 @@ public class GPU {
     /**
      * Updates the lcd flag in memory at 0xff41
      * according to current state
+     *
+     * requests interrupts as state changes
      */ 
-    private void updateLCDFlag() {
+    private void updateLCDMode() {
         if (!lcdEnabled()) {
-            //resetToModeOne();// wrong i think TODO!!!
-            
+            //resetToModeOne(); wrong i think TODO!!!
             return;
         }
 
@@ -194,26 +195,29 @@ public class GPU {
         int currentMode = flags & 0x3;
         int nextMode;
         boolean requestInterrupt = false;
-        
+
+
+        //Set next mode and check for interrupts
         if (currentScanLine >= 144) {
-            nextMode = 1;
-            requestInterrupt = isSet(flags, 4) && (currentMode != 1);
+            nextMode = VERT_BLANK;
+            requestInterrupt = isSet(flags, 4) && (currentMode != VERT_BLANK);
         } else {
             if (scanLineClock >= 376) {
-                nextMode = 2;
-                requestInterrupt = isSet(flags, 5) && (currentMode != 2);
+                nextMode = OAM_MODE;
+                requestInterrupt = isSet(flags, 5) && (currentMode != OAM_MODE);
             } else if (scanLineClock >= 204) {
-                nextMode = 3;
+                nextMode = VRAM_MODE;
             } else {
-                nextMode = 0;
-                requestInterrupt = isSet(flags, 3) && (currentMode != 0);
+                nextMode = HORIZ_BLANK;
+                requestInterrupt = isSet(flags, 3) && (currentMode != HORIZ_BLANK);
             }
         }
         
         if (requestInterrupt) {
-            cpu.requestInterrupt(1);
+            cpu.requestInterrupt(1); //LCD Interrupt
         }
-        
+
+        //check for LY == LYCc
         if (memory.readByte(0xff45) == currentScanLine) {
             flags |= 1 << 2;
             if (isSet(flags, 6)) {
@@ -262,7 +266,9 @@ public class GPU {
      * drawTiles
      * 
      * Draw the tiles for the current scan line
-     * 
+     *
+     * TODO
+     *
      */ 
     private void drawTiles() {
         // get flags
@@ -340,7 +346,7 @@ public class GPU {
     private boolean isSet(int num, int bitNum) {
         return (((num >> bitNum) & 0x1) == 1);
     }
-    
+
     private int getColor(int pixCode, int palAddress) {
         int palette = memory.readByte(palAddress);
         int colSelect;
