@@ -127,16 +127,21 @@ public class GPU {
         }
         
         int currentScanLine = memory.getScanLine();
-        
+//        System.out.println(currentScanLine);
         if (currentScanLine == 144) {
+            System.out.println("current scanline == 144, interrupting");
+            cpu.requestInterrupt(0);
+        } else if (currentScanLine > 152) {
             lcdscreen.repaint();
-//            cpu.requestInterrupt(0);
-        } else if (currentScanLine > 153) {
             memory.setScanLine(0);
+            scanLineClock = 456; //ugh bad bug
         } else if (currentScanLine < 144) {
             renderScan();
         }
-        memory.incScanLine();
+        if (currentScanLine <= 152) {
+            memory.incScanLine();
+        }
+        
     }
     
     
@@ -179,7 +184,8 @@ public class GPU {
      */ 
     private void updateLCDFlag() {
         if (!lcdEnabled()) {
-            resetToModeOne();
+            //resetToModeOne();// wrong i think TODO!!!
+            
             return;
         }
 
