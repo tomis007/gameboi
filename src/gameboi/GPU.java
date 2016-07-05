@@ -124,20 +124,21 @@ public class GPU {
             return; //don't need to do anything
         }
 
-
         scanLineClock -= cycles;
+
         //not time to update scanline yet
         if (scanLineClock > 0) {
             return;
         }
-        
+
+        scanLineClock = 456; // reset for next cycle
         int currentScanLine = memory.getScanLine();
         if (currentScanLine == 144) {
             cpu.requestInterrupt(0); //vertical blank interrupt
         } else if (currentScanLine > 152) {
             lcdscreen.repaint();
             memory.setScanLine(0);
-            scanLineClock = 456; //account for vertical blank timing TODO
+            scanLineClock = 4560; //account for vertical blank timing TODO
         } else if (currentScanLine < 144) {
             renderScan();
         }
@@ -168,13 +169,12 @@ public class GPU {
         int lcdc = memory.readByte(0xff40);
         
         if (isSet(lcdc, 0)) {
-            //drawTiles();
             renderScanLineTiles();
         }
     
-//        if (isSet(lcdc, 1)) {
-//            drawSprites();
-//        }
+        if (isSet(lcdc, 1)) {
+            drawSprites();
+        }
         
     }
     
@@ -341,7 +341,7 @@ public class GPU {
         int scY = memory.readByte(0xff42);
         int scX = memory.readByte(0xff43);
         int currentScanLine = memory.getScanLine();
-        int tileDataAddress = isSet(lcdc, 4) ? 0x8000 : 0x8800;
+        int tileDataAddress = isSet(lcdc, 4) ? 0x8000 : 0x9000; //NOTE OFFSET MIGHT BE WRONG TODO
 
 
         //which of 32 rows of tiles to use
@@ -352,14 +352,12 @@ public class GPU {
         for (int i = 0; i < 160; ++i) {
             int tileColIndex = (scX + i) / 8;
             byte tileNumber = (byte)memory.readByte(tileColIndex + tileRowIndex + mapBaseAddress);
-            //System.out.println("Scanline: " + currentScanLine + " tileNum: " + tileNumber + " i:" + i);
             int tileAddress;
 
 
             if (isSet(lcdc, 4)) {
                 tileAddress = tileDataAddress + (Byte.toUnsignedInt(tileNumber) * 16);
             } else {
-                System.out.println("not set");
                 tileAddress = tileDataAddress + (tileNumber * 16);
             }
 
@@ -378,9 +376,71 @@ public class GPU {
     }
 
 
-    
+    /**
+     *
+     * draws the sprites onto the background
+     *
+     *
+     * TODO!!!!!! priorities not correct etc...
+     */
     private void drawSprites() {
-    
+        int lcdc = memory.readByte(0xff40);
+        int height = isSet(lcdc, 2) ? 16 : 8;
+        int currentScanLine = memory.getScanLine();
+
+        //scan through all sprites and draw ones that
+        //are on current scanline
+        for (int i = 0; i < 40; ++i) {
+            int offset = i * 4;
+            int yPos = memory.readByte(offset + 0xfe00);
+            int xPos = memory.readByte(offset + 0xfe00 + 1);
+            int tileLocation = memory.readByte(offset + 0xfe00 + 2);
+            int flags = memory.readByte(offset + 0xfe00 + 3);
+
+            //need to draw sprite
+            if ((currentScanLine >= yPos) && (currentScanLine < (yPos + height))) {
+                boolean flipHorizontal = isSet(flags, 6);
+                boolean flipVertical = isSet(flags, 5);
+
+                int line = currentScanLine - yPos;
+
+                if (flipVertical) {
+                    line -= height;
+                    line *= -1;
+                }
+
+                line *= 2;
+
+                int pixDataA = memory.readByte(0x8000 + (tileLocation * 16) + line);
+                int pixDataB = memory.readByte(0x8000 + (tileLocation * 16) + line + 1);
+
+                for (int tilePixel = 7; tilePixel >= 0; tilePixel--) {
+                    int colorBit = tilePixel;
+                    if (flipHorizontal) {
+                        colorBit -= 7;
+                        colorBit *= 1;
+                    }
+
+                    int colorNum = isSet(pixDataA, colorBit) ? 1 : 0;
+                    colorNum = (colorNum << 1) | (isSet(pixDataB, colorBit) ? 1 : 0);
+
+                    int colorAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
+                    int color = getColor(colorNum, colorAddress);
+
+                    if (color == 0xffffffff) {
+                        continue;
+                    }
+
+                    int xPix = 0 - tilePixel;
+                    xPix += 7;
+
+                    int pixel = xPos + xPix;
+
+
+                    screenDisplay.setRGB(pixel, currentScanLine, color);
+                }
+            }
+        }
     }
     
     /**
