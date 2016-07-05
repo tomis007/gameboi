@@ -262,79 +262,14 @@ public class GPU {
         flags |= 0x1;
         memory.writeByte(0xff41, flags);
     }
-    
+
+
     /**
-     * drawTiles
-     * 
-     * Draw the tiles for the current scan line
+     * draws the tiles for the current scanline
      *
-     * TODO
+     * TODO: Windows!
      *
-     */ 
-/*    private void drawTiles() {
-        // get flags
-        int lcdc = memory.readByte(0xff40);
-        //background coordinates
-        int scX = memory.readByte(0xff43);
-        int scY = memory.readByte(0xff42);
-        //window coordinates
-        int wY = memory.readByte(0xff4a);
-        int wX = memory.readByte(0xff4b) - 7;
-        int currentScanLine = memory.getScanLine();
-
-        
-        // get first tile data address
-        int tileDataAddress = (isSet(lcdc, 4)) ? 0x8000 : 0x8800;
-        //test to see if going to draw window
-        boolean drawWindow = (wY <= currentScanLine) && isSet(lcdc, 5);
-        
-        //get background tile address
-        // NOTE??????
-        int backgroundAddress;
-        if (!drawWindow) {
-            backgroundAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
-        } else {
-            backgroundAddress = isSet(lcdc, 6) ? 0x9c00 : 0x9800;
-        }
-        backgroundAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
-
-        
-        int yPos = drawWindow ? currentScanLine - wY : scY + currentScanLine;
-        int tileRow = (yPos / 8) * 32;
-        
-        for (int pix = 0; pix < 160; ++pix) {
-            int xPos = (drawWindow && pix >= wX) ? pix - wX: pix + scX;
-            int tileCol = xPos / 8;
-            
-            int tileAddress = backgroundAddress + tileRow + tileCol;
-            
-            int tileNum = memory.readByte(tileAddress);
-            
-            if (isSet(lcdc, 4)) {
-                tileNum = (byte)tileNum;
-            }
-            
-            int tileLoc = tileDataAddress;
-            
-            tileLoc += isSet(lcdc, 4) ? tileNum * 16 : (tileNum + 128) * 16; 
-            int line = yPos % 8;
-            line *= 2;
-            int pixDatA = memory.readByte(line + tileLoc);
-            int pixDatB = memory.readByte(line + tileLoc + 1);
-            
-            
-            
-            int colorBit = xPos % 8;
-            colorBit = (colorBit - 7) * -1;
-            int colorNum = (pixDatB >> colorBit) & 0x1;
-            colorNum = (colorNum << 1) | ((pixDatA >> colorBit) & 0x1);
-            
-            screenDisplay.setRGB(pix, currentScanLine, getColor(colorNum, 0xff47));
-        }
-        
-    }
-*/
-
+     */
     private void renderScanLineTiles() {
         int lcdc = memory.readByte(0xff40);
         int mapBaseAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
@@ -382,6 +317,7 @@ public class GPU {
      *
      *
      * TODO!!!!!! priorities not correct etc...
+     * TODO also doesnt work...
      */
     private void drawSprites() {
         int lcdc = memory.readByte(0xff40);
