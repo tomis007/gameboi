@@ -33,7 +33,10 @@ public class CPU {
     private final int clockSpeed;
     private int timerCounter;
     private int divideCounter;
-    
+
+    private boolean executionHalted;
+
+
     /**
      * Interrupt state of cpu
      * Represents the Interrupt Master Enable Flag
@@ -113,11 +116,7 @@ public class CPU {
      */ 
     public int ExecuteOpcode() {
 
-//        if (pc == 0x36f && !debug) {
-//            enterDebugMode();
-//        }
 
-//        System.out.println(Integer.toHexString(pc));
 
         //handle interrupt state change
         if (interruptState == DELAY_ON) {
@@ -125,7 +124,14 @@ public class CPU {
         } else if (interruptState == DELAY_OFF) {
             interruptState = DISABLED;
         }
-        
+
+        //halted, resumed by an interrupt occuring
+        if (executionHalted) {
+//            System.out.println("executing halted");
+            return 0;
+        }
+
+
         int opcode = memory.readByte(pc);
         pc++;
 //        System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
@@ -162,6 +168,7 @@ public class CPU {
             System.out.print(" > ");
             input = sc.nextLine();
         }
+        debug = false;
     }
     
     /**
@@ -448,7 +455,7 @@ public class CPU {
             
             
             //TODO HALT,STOP
-            case 0x76: System.err.println("Halt not implemented"); return 0;
+            case 0x76: return halt();
             case 0x10: System.err.println("STOP not implemented"); return 0;
             case 0xf3: return disableInterrupts();
             case 0xfb: return enableInterrupts();
@@ -942,8 +949,20 @@ public class CPU {
         memory.writeByte(address + 0xff00, data);
         return 8;
     }
-    
-    
+
+
+    /**
+     * halts the cpu until an interrupt occurs
+     * TODO
+     * @return 0
+     */
+    private int halt() {
+        System.err.println("halting"); //todo
+        //executionHalted = true;
+        return 4;
+    }
+
+
     
     /** LDD A, (HL)
      * 
@@ -1394,7 +1413,7 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
-            System.out.println("comparing A: " + registers.getReg(A) + " to data: " + data);
+//            System.out.println("comparing A: " + registers.getReg(A) + " to data: " + data);
         } else if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 8;
@@ -2561,7 +2580,6 @@ public class CPU {
         int flags = memory.readByte(0xff0f);
         flags = setBit(1, id, flags);
         memory.writeByte(0xff0f, flags);
-        System.out.println("requestedInterrupt " + id + "wrote :" + Integer.toBinaryString(flags));
         checkInterrupts();
     }
     
@@ -2572,11 +2590,10 @@ public class CPU {
         if (interruptState != ENABLED) {
             return; //IME flag not set
         }
-//        System.out.println("Interrupts enabled and checking");
 
         int interruptFlag = memory.readByte(0xff0f);
         int interruptEnable = memory.readByte(0xffff);
-//        System.out.println("Requests: 0b" + Integer.toBinaryString(requests));
+
         if (interruptFlag > 0 && interruptEnable > 0) {
             for (int i = 0; i < 5; ++i) {
                 if (isSet(interruptFlag, i) && isSet(interruptEnable, i)) {
@@ -2585,6 +2602,7 @@ public class CPU {
             }
         }
     }
+
     
     
     
@@ -2602,6 +2620,7 @@ public class CPU {
     private void handleInterrupt(int id) {
         //clear IME flag
         interruptState = DISABLED;
+        executionHalted = false; //TODO
 
         //reset the interrupt bit
         int flags = memory.readByte(0xff0f);
@@ -2611,7 +2630,6 @@ public class CPU {
         
         switch (id) {
             case 0: pc = 0x40;
-                    System.out.println("Vblank interrupt");
                     break;
             case 1: pc = 0x48;
                     break;
@@ -2644,7 +2662,7 @@ public class CPU {
      * TODO read one more opcode
      */ 
     private int enableInterrupts() {
-        System.out.println("enabled interrupts");
+        //System.out.println("enabled interrupts");
         interruptState = DELAY_ON;
         return 4;
     }
