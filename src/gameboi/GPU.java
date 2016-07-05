@@ -79,7 +79,7 @@ public class GPU {
      * Bit 1: OBJ (Sprite) Display Enable (0=Off, 1=ON)
      * Bit 0: BG Display (FOR GBC) (0=Off, 1=ON)
      */ 
-    private int lcdc;
+    //private int lcdc;
     
     
     
@@ -133,7 +133,7 @@ public class GPU {
         
         int currentScanLine = memory.getScanLine();
         if (currentScanLine == 144) {
-            cpu.requestInterrupt(0); //vertical blank interrupt TODO
+            cpu.requestInterrupt(0); //vertical blank interrupt
         } else if (currentScanLine > 152) {
             lcdscreen.repaint();
             memory.setScanLine(0);
@@ -165,10 +165,11 @@ public class GPU {
      */
     private void renderScan() {
         // get flags
-        lcdc = memory.readByte(0xff40);
+        int lcdc = memory.readByte(0xff40);
         
         if (isSet(lcdc, 0)) {
-            drawTiles();
+            //drawTiles();
+            renderScanLineTiles();
         }
     
 //        if (isSet(lcdc, 1)) {
@@ -237,7 +238,7 @@ public class GPU {
      * (lowest two bits)
      */ 
     private int setMode(int flag, int nextMode) {
-        flag = flag & 0xfc;
+        flag &= 0xfc;
         switch(nextMode) {
             case 0: return flag;
             case 1: return flag | 0x1;
@@ -270,9 +271,9 @@ public class GPU {
      * TODO
      *
      */ 
-    private void drawTiles() {
+/*    private void drawTiles() {
         // get flags
-        lcdc = memory.readByte(0xff40);
+        int lcdc = memory.readByte(0xff40);
         //background coordinates
         int scX = memory.readByte(0xff43);
         int scY = memory.readByte(0xff42);
@@ -295,6 +296,8 @@ public class GPU {
         } else {
             backgroundAddress = isSet(lcdc, 6) ? 0x9c00 : 0x9800;
         }
+        backgroundAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
+
         
         int yPos = drawWindow ? currentScanLine - wY : scY + currentScanLine;
         int tileRow = (yPos / 8) * 32;
@@ -330,6 +333,51 @@ public class GPU {
         }
         
     }
+*/
+
+    private void renderScanLineTiles() {
+        int lcdc = memory.readByte(0xff40);
+        int mapBaseAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
+        int scY = memory.readByte(0xff42);
+        int scX = memory.readByte(0xff43);
+        int currentScanLine = memory.getScanLine();
+        int tileDataAddress = isSet(lcdc, 4) ? 0x8000 : 0x8800;
+
+
+        //which of 32 rows of tiles to use
+        int tileRowIndex = ((scY + currentScanLine) / 8) * 32; //+ currentScanLine
+
+
+        //TODO!!!!! Lots of unnecessary computation
+        for (int i = 0; i < 160; ++i) {
+            int tileColIndex = (scX + i) / 8;
+            byte tileNumber = (byte)memory.readByte(tileColIndex + tileRowIndex + mapBaseAddress);
+            //System.out.println("Scanline: " + currentScanLine + " tileNum: " + tileNumber + " i:" + i);
+            int tileAddress;
+
+
+            if (isSet(lcdc, 4)) {
+                tileAddress = tileDataAddress + (Byte.toUnsignedInt(tileNumber) * 16);
+            } else {
+                System.out.println("not set");
+                tileAddress = tileDataAddress + (tileNumber * 16);
+            }
+
+            int tileOffset = ((scY + currentScanLine) % 8) * 2;
+
+            int pixDataA = memory.readByte(tileOffset + tileAddress);
+            int pixDataB = memory.readByte(tileOffset + tileAddress + 1);
+
+            int xPos = (scX + i) % 8;
+
+            int colorNum = ((pixDataB << xPos) & 0x80) >> 7;
+            colorNum = (colorNum << 1) | (((pixDataA << xPos) & 0x80) >> 7);
+
+            screenDisplay.setRGB(i, currentScanLine, getColor(colorNum, 0xff47));
+        }
+    }
+
+
     
     private void drawSprites() {
     
