@@ -321,64 +321,89 @@ public class GPU {
      */
     private void drawSprites() {
         int lcdc = memory.readByte(0xff40);
-        int height = isSet(lcdc, 2) ? 16 : 8;
+        int height = isSet(lcdc, 2) ? 16 : 8; //8x16 mode or 8x8 mode
         int currentScanLine = memory.getScanLine();
 
-        //scan through all sprites and draw ones that
-        //are on current scanline
+        //scan sprites and draw ones that
+        //are on current scanline todo correct priorities
+//        int drawn_count = 0; todo only 10 sprites drawn on screen
         for (int i = 0; i < 40; ++i) {
-            int offset = i * 4;
-            int yPos = memory.readByte(offset + 0xfe00);
-            int xPos = memory.readByte(offset + 0xfe00 + 1);
-            int tileLocation = memory.readByte(offset + 0xfe00 + 2);
-            int flags = memory.readByte(offset + 0xfe00 + 3);
+            int yPos = memory.readByte((i * 4) + 0xfe00) - 16;
+            int xPos = memory.readByte((i * 4) + 0xfe00 + 1) - 8;
+            int patternNumber = memory.readByte((i * 4) + 0xfe00 + 2);
+            int flags = memory.readByte((i * 4) + 0xfe00 + 3);
 
             //need to draw sprite
             if ((currentScanLine >= yPos) && (currentScanLine < (yPos + height))) {
-                boolean flipHorizontal = isSet(flags, 6);
-                boolean flipVertical = isSet(flags, 5);
+                System.out.println("\ncurrent scanline:" + currentScanLine);
+                System.out.println("sprite number: " + i);
+                System.out.println("yPos: " + yPos);
+                System.out.println("xPos: " + xPos);
+                System.out.println("Pattern Number: " + patternNumber);
+                System.out.println("Flags: " + Integer.toBinaryString(flags));
 
-                int line = currentScanLine - yPos;
+                for (int j = 0; j < 8; ++j) {
+                    int add = 0x8000 + (patternNumber * 16) + (2 * j);
+                    int pixDataA = memory.readByte(add);
+                    int pixDataB = memory.readByte(add + 1);
+                    System.out.println("0x" + Integer.toHexString(add) + "  " + Integer.toBinaryString(pixDataA));
+                    System.out.println("0x" + Integer.toHexString(add + 1) + "  " + Integer.toBinaryString(pixDataB));
 
-                if (flipVertical) {
-                    line -= height;
-                    line *= -1;
+
                 }
+                //System.exit(1);
+                //todo flip horizontal/vertical
+                //todo priority with background
 
-                line *= 2;
 
-                int pixDataA = memory.readByte(0x8000 + (tileLocation * 16) + line);
-                int pixDataB = memory.readByte(0x8000 + (tileLocation * 16) + line + 1);
+                //read correct pixel data from memory for appropriate line of sprite
+                int byteAddress = 0x8000 + (patternNumber * 16) + ((currentScanLine - yPos) * 2);
+                System.out.println("address: " + Integer.toHexString(byteAddress));
+                int pixDataA = memory.readByte(byteAddress);
+                int pixDataB = memory.readByte(byteAddress + 1);
+                System.out.println("Drawing: " + Integer.toBinaryString(pixDataA));
+                System.out.println("Drawing: " + Integer.toBinaryString(pixDataB));
 
-                for (int tilePixel = 7; tilePixel >= 0; tilePixel--) {
-                    int colorBit = tilePixel;
-                    if (flipHorizontal) {
-                        colorBit -= 7;
-                        colorBit *= 1;
+                for (int pixel = 0; pixel < 8; pixel++) {
+                    int colorNum = getPixelColorNum(pixDataA, pixDataB, pixel);
+                    int paletteAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
+
+                    int pixColor = getColor(colorNum, paletteAddress);
+                    System.out.println("pixel + xPos:" + (xPos + pixel) + "  pixColor: " + pixColor);
+                    if (pixColor != 0xffffffff) {
+                        screenDisplay.setRGB(xPos + pixel, currentScanLine, pixColor);
                     }
-
-                    int colorNum = isSet(pixDataA, colorBit) ? 1 : 0;
-                    colorNum = (colorNum << 1) | (isSet(pixDataB, colorBit) ? 1 : 0);
-
-                    int colorAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
-                    int color = getColor(colorNum, colorAddress);
-
-                    if (color == 0xffffffff) {
-                        continue;
-                    }
-
-                    int xPix = 0 - tilePixel;
-                    xPix += 7;
-
-                    int pixel = xPos + xPix;
-
-
-                    screenDisplay.setRGB(pixel, currentScanLine, color);
                 }
             }
         }
     }
-    
+
+
+
+    /**
+     * Returns the colorNumber specified by the two
+     * bytes of pixel data of pixIndex pixel
+     *
+     *
+     * NOTE: if pixel data is 0xf0 and 0xf0
+     * pixel 7 will be [0,0] and pixel 0 will be [1,1]
+     *
+     *
+     * @param pixDataA first byte of data
+     * @param pixDataB second byte of data
+     * @param pixIndex index of pixel to check (0 - 7)
+     * @return colorNum (0 - 3) of appropriate pixel
+     */
+    private int getPixelColorNum(int pixDataA, int pixDataB, int pixIndex) {
+        int colorNum = isSet(pixDataB, 7 - pixIndex) ? 1 : 0;
+        colorNum = (colorNum << 1) | (isSet(pixDataA, 7 - pixIndex) ? 1 : 0);
+
+        return colorNum;
+    }
+
+
+
+
     /**
      * isSet
      * 
@@ -391,12 +416,21 @@ public class GPU {
         return (((num >> bitNum) & 0x1) == 1);
     }
 
-    private int getColor(int pixCode, int palAddress) {
+
+    /**
+     * Translates the pixColor (0 - 3) to actual
+     * color RGB (todo?)
+     *
+     * @param pixColor
+     * @param palAddress
+     * @return
+     */
+    private int getColor(int pixColor, int palAddress) {
         int palette = memory.readByte(palAddress);
         int colSelect;
         
         
-        switch(pixCode) {
+        switch(pixColor) {
             case 0: colSelect = (palette & 0x3);
                     break;
             case 1: colSelect = (palette >> 2) & 0x3;
