@@ -4,6 +4,8 @@
 package gameboi;
 
 // for testing
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Scanner;
 
 /**
@@ -25,6 +27,8 @@ public class CPU {
     //for debugging    
     private GPU gpu;
     private boolean debug;
+    private int[] executed_opcodes;
+
     
     //associated memory to use with CPU
     private final GBMem memory;
@@ -81,14 +85,20 @@ public class CPU {
      * @param memory GBMem object to associate with this cpu
      */ 
     public CPU(GBMem memory) {
-        pc = 0x100;
-        sp = 0xfffe;
+        //for bios
+        pc = 0x00;
+        //sp = 0xfffe;
         this.memory = memory;
         registers = new GBRegisters();
         clockSpeed = 4194304;
         timerCounter = 1024;
         divideCounter = clockSpeed / 16382;
         interruptState = DISABLED;
+
+        executed_opcodes = new int[0xff];
+        for (int i = 0; i < executed_opcodes.length; ++i) {
+            executed_opcodes[i] = 0;
+        }
 
 
         debug = false;
@@ -116,7 +126,10 @@ public class CPU {
      */ 
     public int ExecuteOpcode() {
 
-
+        if (executionHalted) {
+//            System.out.println("execution halted returning 4");
+            return 4; // to keep other things running
+        }
 
         //handle interrupt state change
         if (interruptState == DELAY_ON) {
@@ -125,22 +138,34 @@ public class CPU {
             interruptState = DISABLED;
         }
 
-        //halted, resumed by an interrupt occuring
-        if (executionHalted) {
-//            System.out.println("executing halted");
-            return 0;
-        }
-
+//        dumpRegisters();
+//        System.out.println();
+//        System.out.println("PC: 0x" + Integer.toHexString(pc));
 
         int opcode = memory.readByte(pc);
         pc++;
-//        System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
-//        System.out.println("Pc: 0x" + Integer.toHexString(pc));
-        
+
+//        if (pc >= 0xa) {
+//            System.out.println("PC: 0x" + Integer.toHexString(pc));
+//        }
+
+        if (pc > 0xb) {
+            printOpcodeCount();
+            dumpRegisters();
+            System.exit(1);
+        }
+        executed_opcodes[opcode]++;
+
+//            System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
+//            System.out.println("Pc: 0x" + Integer.toHexString(pc - 1));
+
         int cycles = runInstruction(opcode);
-        updateDivideRegister(cycles); //TODO
-        updateTimers(cycles); //TODO
-        checkInterrupts();
+
+        if (!executionHalted) {
+            updateDivideRegister(cycles); //TODO
+            updateTimers(cycles); //TODO
+            checkInterrupts();
+        }
 
         return cycles;
     }
@@ -170,7 +195,31 @@ public class CPU {
         }
         debug = false;
     }
-    
+
+    /**
+     *
+     * for debugging
+     *
+     *
+     * prints every executed opcode and the
+     * number of times they have been executed
+     *
+     */
+    public void printOpcodeCount() {
+        try {
+            PrintWriter writer = new PrintWriter("output_opcodes.txt");
+            for (int i = 0; i < 0xff; ++i) {
+                if (executed_opcodes[i] > 0) {
+                    writer.println("opcode: 0x" + Integer.toHexString(i) + "   count: " + executed_opcodes[i]);
+                }
+            }
+            writer.close();
+        } catch (IOException e) {
+            System.err.println("exception");
+        }
+    }
+
+
     /**
      * Opcode Instructions for the Gameboy Z80 Chip.
      * 
@@ -455,8 +504,8 @@ public class CPU {
             
             
             //TODO HALT,STOP
-            case 0x76: return halt();
-            case 0x10: System.err.println("STOP not implemented"); return 0;
+            case 0x76: System.out.println("HALT");return halt();
+            case 0x10: System.out.println("stop");return stop();
             case 0xf3: return disableInterrupts();
             case 0xfb: return enableInterrupts();
 
@@ -957,8 +1006,13 @@ public class CPU {
      * @return 0
      */
     private int halt() {
-        System.err.println("halting"); //todo
-        //executionHalted = true;
+        if (interruptState != DISABLED) {
+            executionHalted = true;
+            System.out.println("halting");
+        } else {
+            //interrupts not Enabled behavior skips next instruction
+            pc++;
+        }
         return 4;
     }
 
@@ -1413,7 +1467,6 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
-//            System.out.println("comparing A: " + registers.getReg(A) + " to data: " + data);
         } else if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 8;
@@ -2432,7 +2485,6 @@ public class CPU {
     private int bitBR(int bit, GBRegisters.Reg reg) {
         int data;
         int cycles;
-        
         if (reg == GBRegisters.Reg.HL) {
             data = memory.readByte(registers.getReg(reg));
             cycles = 16;
@@ -2440,9 +2492,9 @@ public class CPU {
             data = registers.getReg(reg);
             cycles = 8;
         }
-        
+        System.out.println(Integer.toBinaryString(data));
         registers.resetZ();
-        if (isSet(bit, data)) {
+        if (!isSet(data, bit)) {
             registers.setZ();
         }
         registers.setH();
@@ -2577,6 +2629,7 @@ public class CPU {
      * @param id interrupt to request
      */ 
     public void requestInterrupt(int id) {
+        if (executionHalted) System.out.println("interrupt requested");
         int flags = memory.readByte(0xff0f);
         flags = setBit(1, id, flags);
         memory.writeByte(0xff0f, flags);
@@ -2594,7 +2647,17 @@ public class CPU {
         int interruptFlag = memory.readByte(0xff0f);
         int interruptEnable = memory.readByte(0xffff);
 
-        if (interruptFlag > 0 && interruptEnable > 0) {
+        //resumed with ANY interrupt
+        if (executionHalted && interruptFlag > 0) {
+            for (int i = 0; i < 5; ++i) {
+                if (isSet(interruptFlag, i)) {
+                    System.out.println("resuming");
+                    executionHalted = false;
+                    handleInterrupt(i);
+                    break;
+                }
+            }
+        } else if (interruptFlag > 0 && interruptEnable > 0) {
             for (int i = 0; i < 5; ++i) {
                 if (isSet(interruptFlag, i) && isSet(interruptEnable, i)) {
                     handleInterrupt(i);
@@ -2620,7 +2683,9 @@ public class CPU {
     private void handleInterrupt(int id) {
         //clear IME flag
         interruptState = DISABLED;
-        executionHalted = false; //TODO
+        if (executionHalted) {
+            System.out.println("resuming");
+        }
 
         //reset the interrupt bit
         int flags = memory.readByte(0xff0f);
@@ -2666,6 +2731,20 @@ public class CPU {
         interruptState = DELAY_ON;
         return 4;
     }
+
+
+    /**
+     * waits until a button is pressed
+     * TODO
+     *
+     * @return
+     */
+    private int stop() {
+        pc++;
+        return 4;
+    }
+
+
    
 }
 
