@@ -6,6 +6,9 @@
 package gameboi;
 
 
+import sun.misc.ASCIICaseInsensitiveComparator;
+import sun.misc.FloatingDecimal;
+
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.io.IOException;
@@ -81,7 +84,7 @@ public class GBMem {
         try {
             byte[] rom = Files.readAllBytes(path);
             cartridge = new int[rom.length];
-            
+
             for (int i = 0; i < rom.length; ++i) {
                 cartridge[i] = Byte.toUnsignedInt(rom[i]);
             }
@@ -101,7 +104,8 @@ public class GBMem {
             for (int i = 0xfe00; i < 0xfe9f && i < rom.length; ++i) {
                 OAMTable[i - 0xfe00] = cartridge[i];
             }
-            memBank = new MemBanks(cartridge);
+
+            //memBank = new MemBanks(cartridge);
 
         } catch (IOException e) {
             System.err.println("Caught IOException: " + e.getMessage());
@@ -109,14 +113,63 @@ public class GBMem {
         }
         joyPadState = 0xff;
 
+        rom[0x104] = 0xce;
+        rom[0x105] = 0xed;
+        rom[0x106] = 0x66;
+        rom[0x107] = 0x66;
+        rom[0x108] = 0xcc;
+        rom[0x109] = 0x0d;
+        rom[0x10a] = 0x00;
+        rom[0x10b] = 0x0b;
+        rom[0x10c] = 0x03;
+        rom[0x10d] = 0x73;
+        rom[0x10e] = 0x00;
+        rom[0x10f] = 0x83;
+        rom[0x110] = 0x00;
+        rom[0x111] = 0x0c;
+        rom[0x112] = 0x00;
+        rom[0x113] = 0x0d;
+        rom[0x114] = 0x00;
+        rom[0x115] = 0x08;
+        rom[0x116] = 0x11;
+        rom[0x117] = 0x1f;
+        rom[0x118] = 0x88;
+        rom[0x119] = 0x89;
+        rom[0x11a] = 0x00;
+        rom[0x11b] = 0x0e;
+        rom[0x11c] = 0xdc;
+        rom[0x11d] = 0xcc;
+        rom[0x11e] = 0x6e;
+        rom[0x11f] = 0xe6;
+        rom[0x120] = 0xdd;
+        rom[0x121] = 0xdd;
+        rom[0x122] = 0xd9;
+        rom[0x123] = 0x99;
+        rom[0x124] = 0xbb;
+        rom[0x125] = 0xbb;
+        rom[0x126] = 0x67;
+        rom[0x127] = 0x63;
+        rom[0x128] = 0x6e;
+        rom[0x129] = 0x0e;
+        rom[0x12a] = 0xec;
+        rom[0x12b] = 0xcc;
+        rom[0x12c] = 0xdd;
+        rom[0x12d] = 0xdc;
+        rom[0x12e] = 0x99;
+        rom[0x12f] = 0x9f;
+        rom[0x130] = 0xbb;
+        rom[0x131] = 0xb9;
+        rom[0x132] = 0x33;
+        rom[0x133] = 0x3e;
 
-        //all 0 for tetris
-//        System.out.println(memory[0x147]);
-//        System.out.println(memory[0x148]);
-//        System.out.println(memory[0x149]);
-//        System.exit(1);
-        
+
+
+        //for bios checksum
+        rom[0x14d] = 0xe7;
+
+
         //initialize values in memory
+        //gb bios leaves this state after running
         memory[0xff05] = 0x0;
         memory[0xff06] = 0x0;
         memory[0xff07] = 0x0;
@@ -174,14 +227,10 @@ public class GBMem {
      */
     public int readByte(int address) {
 
-        //for debugging
-        if (address == 0xff80) {
-            System.out.println("reading 0x" + memory[0xff80] + " from 0xff80");
-        }
 
         if (address == 0xff00) {
-//            System.out.println("reading the joypad");
-            return translateJoyPad();
+            int data =  translateJoyPad();
+            return IOPorts[0] | data; //todo Not 100% sure
         } else if (address < 0x8000) {
             return rom[address];
         } else if (address < 0xa000) {
@@ -230,12 +279,12 @@ public class GBMem {
         //only store a byte in memory
         data &= 0xff;
         
-        //for debugging TODO
-        if (address == 0xff80) {
-            System.out.println("Writing to 0xff80");
-        }
-        if (address == 0xff85) {
-            System.out.println("Writing to 0xff85: " + Integer.toBinaryString(data));
+        //for BLARGG's test ROMS
+        if (address == 0xff02) {
+            if (data == 0x81) {
+                char output = (char)IOPorts[1];
+                System.out.print(output);
+            }
         }
 
         if (address < 0x8000) {
@@ -296,7 +345,7 @@ public class GBMem {
      * @return memory[0xff44]
      */ 
     public int getScanLine() {
-        return memory[0xff44];
+        return IOPorts[0x44];
     }
 
 
@@ -333,7 +382,7 @@ public class GBMem {
     private void DMATransfer(int data) {
         int address = data << 8;
 
-        //TODO MAKE FASTER DUH
+        //TODO MAKE FASTER?
         for (int i = 0; i < 0xa0; ++i) {
             OAMTable[i] = readByte(address + i);
         }
@@ -344,16 +393,16 @@ public class GBMem {
      * @param num new scanline value
      */ 
     public void setScanLine(int num) {
-        memory[0xff44] = num;
-        IOPorts[0xff44 - 0xff00] = num;
+        //memory[0xff44] = num;
+        IOPorts[0x44] = num;
     }  
     
     /**
      * increments the scanLine at 0xff44
      */ 
     public void incScanLine() {
-        memory[0xff44]++;
-        IOPorts[0xff44 - 0xff00]++;
+        //memory[0xff44]++;
+        IOPorts[0x44]++;
     }
     
     /**
@@ -361,17 +410,17 @@ public class GBMem {
      * 
      */ 
     public void incrementDivider() {
-        memory[0xff04] = (memory[0xff04] + 1) & 0xff;
+//        memory[0xff04] = (memory[0xff04] + 1) & 0xff;
         IOPorts[0x04] = (IOPorts[0x04] + 1) & 0xff;
     }
     
     
     /**
-     * Sets the current joypad state to nextSTate
+     * Sets the current joypad state to nextState
      * @param nextState value to set
      */ 
     public void updateJoyPadState(int nextState) {
-        joyPadState = nextState;
+        joyPadState = nextState & 0xff;
     }
     
     /**
@@ -393,18 +442,18 @@ public class GBMem {
      * KEY 2 - UP
      * KEY 1 - LEFT
      * KEY 0 - RIGHT
-     */ 
+     */
+    //TODO
     private int translateJoyPad() {
-        int requests = memory[0xff00];
-
+        int requests = IOPorts[0];
         int joypad = 0xff;
-        // interested in directional pad
-        if (!isSet(requests, 5)) {
+
+        if (!isSet(requests, 4)) {
             joypad = joyPadState & 0xf;
-        } else if (!isSet(requests, 4)) {
-            //interested in other buttons
+        } else if (!isSet(requests, 5)) {
             joypad = (joyPadState & 0xf0) >> 4;
         }
+
         return joypad;
     }
     
