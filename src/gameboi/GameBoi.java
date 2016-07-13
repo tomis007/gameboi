@@ -26,31 +26,21 @@ public class GameBoi {
 
         z80.setGPU(gpu);
         while (true) {
-            int count = 69905;
-//            long startTime = System.nanoTime();
-            while (count > 0) {
+            int count = 0;
+            long startTime = System.nanoTime();
+            while (count < 69905) {
                 int cycles;
                 cycles = z80.ExecuteOpcode();
                 gpu.updateGraphics(cycles);
-                count -= cycles;
+                count += cycles;
             }
-//            long endTime = System.nanoTime();
-//            if (endTime - startTime < (1000000000 / 60)) {
-//                System.out.println("Should sleep: " + (endTime - startTime));
-//                try {
-//                    System.out.println("sleeping");
-//                    Thread.sleep((endTime - startTime) / 1000000);
-//                } catch (InterruptedException e) {
-//                    System.out.println("ugh");
-//                }
-//            }
-
-
-//            System.out.println(count);
+            long endTime = System.nanoTime();
+            try {
+                Thread.sleep((endTime - startTime) / 1000000, (int) ((endTime - startTime) % 1000000));
+            } catch (InterruptedException e) {
+                //oops
+            }
         }
-        //      System.out.println(count);
-//        System.exit(1);
-
     }
 }
-//}
+
