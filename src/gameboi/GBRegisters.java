@@ -32,7 +32,7 @@ public class GBRegisters {
     public GBRegisters() {
         a = 0x1;
         f = 0xb0;
-        b = 0x00;
+        b = 0x0;
         c = 0x13;
         d = 0x0;
         e = 0xd8;
