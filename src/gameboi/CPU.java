@@ -87,7 +87,7 @@ public class CPU {
     public CPU(GBMem memory) {
         //for bios
         pc = 0x00;
-        //sp = 0xfffe;
+        sp = 0;//0xfffe;
         this.memory = memory;
         registers = new GBRegisters();
         clockSpeed = 4194304;
@@ -140,7 +140,15 @@ public class CPU {
 
 //        dumpRegisters();
 //        System.out.println();
-//        System.out.println("PC: 0x" + Integer.toHexString(pc));
+
+        if (pc == 0xe0) {
+            printOpcodeCount();
+            dumpRegisters();
+            System.exit(1);
+//            System.out.println(Integer.toHexString((registers.getReg(F))));
+            System.out.println(Integer.toHexString((registers.getReg(B))));
+
+        }
 
         int opcode = memory.readByte(pc);
         pc++;
@@ -149,11 +157,7 @@ public class CPU {
 //            System.out.println("PC: 0x" + Integer.toHexString(pc));
 //        }
 
-        if (pc > 0xb) {
-            printOpcodeCount();
-            dumpRegisters();
-            System.exit(1);
-        }
+
         executed_opcodes[opcode]++;
 
 //            System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
@@ -1543,12 +1547,12 @@ public class CPU {
         int reg;
         if (src == HL) {
             reg = memory.readByte(registers.getReg(src));
-            reg = (reg != 0) ? reg - 1 : 0;
-            memory.writeByte(registers.getReg(src), reg);
+            reg -= 1;
+            memory.writeByte(registers.getReg(src), reg & 0xff);
         } else {
             reg = registers.getReg(src);
-            reg = (reg != 0) ? reg - 1 : 0;
-            registers.setReg(src, reg);
+            reg -= 1;
+            registers.setReg(src, reg & 0xff);
         }
         
         registers.resetZ();
@@ -2459,13 +2463,14 @@ public class CPU {
      * 
      */ 
     public void dumpRegisters() {
-        System.out.println("AF: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.AF)));
-        System.out.println("BC: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.BC)));
-        System.out.println("DE: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.DE)));
-        System.out.println("HL: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.HL)));
-        System.out.println("SP: 0x" + Integer.toHexString(sp));
-        System.out.println("PC: 0x" + Integer.toHexString(pc));
-        
+        System.out.println("A: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.A)));
+        System.out.println("B: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.B)));
+        System.out.println("C: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.C)));
+        System.out.println("D: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.D)));
+        System.out.println("E: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.E)));
+        System.out.println("F: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.F)));
+        System.out.println("H: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.H)));
+        System.out.println("L: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.L)));
     }
     
     
@@ -2492,7 +2497,6 @@ public class CPU {
             data = registers.getReg(reg);
             cycles = 8;
         }
-        System.out.println(Integer.toBinaryString(data));
         registers.resetZ();
         if (!isSet(data, bit)) {
             registers.setZ();
