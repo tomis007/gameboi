@@ -1233,18 +1233,17 @@ public class CPU {
      * 
      */ 
     private int sixteenBitLdHlSp() {
-        int offset = memory.readByte(pc);
+        byte offset = (byte)memory.readByte(pc);
         pc++;
 
-        byte data = (byte)memory.readByte((sp + offset) & 0xffff);
-        registers.setReg(GBRegisters.Reg.HL, data);
+        registers.setReg(HL, offset + sp);
 
         registers.resetAll();
         // todo NOT REALLY SURE HERE, CPU DOCUMENTATION NOT EXACT
-        if (((sp + offset) & 0x1f) > 0xf) {
+        if ((sp & 0xf)+ (offset & 0xf)  > 0xf) {
             registers.setH();
         }
-        if ((sp + offset) > 0xffff) {
+        if ((sp & 0xff) + (offset & 0xff) > 0xff) {
             registers.setC();
         }
         return 12;
@@ -1543,8 +1542,6 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
-            System.out.println("comparing a to: " + data);
-
         } else if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 8;
@@ -1704,15 +1701,15 @@ public class CPU {
         byte offset = (byte)memory.readByte(pc);
         pc++;
         
-        sp += offset;
-        
         registers.resetAll();
-        if (((sp + offset) & 0x1f) > 0xf) {
+        if ((sp & 0xf) + (offset & 0xf)  > 0xf) {
             registers.setH();
         }
-        if (((sp & 0xffff) + offset) > 0xffff) {
+        if ((sp & 0xff) + (offset & 0xff) > 0xff) {
             registers.setC();
         }
+
+        sp += offset;
         return 16;
     }
     
