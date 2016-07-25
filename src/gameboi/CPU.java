@@ -7,6 +7,7 @@ package gameboi;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Scanner;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Z80 Gameboy CPU
@@ -39,7 +40,7 @@ public class CPU {
     private int divideCounter;
 
     private boolean executionHalted;
-
+    private int[] extended_opcodes;
 
     /**
      * Interrupt state of cpu
@@ -56,7 +57,6 @@ public class CPU {
     
     
     private InterruptCpuState interruptState;
-    
     
 
     //constants 
@@ -86,8 +86,8 @@ public class CPU {
      */ 
     public CPU(GBMem memory) {
         //for bios
-        pc = 0x00;
-        sp = 0;//0xfffe;
+        pc = 0x100;
+        sp = 0xfffe;//0xfffe;
         this.memory = memory;
         registers = new GBRegisters();
         clockSpeed = 4194304;
@@ -96,8 +96,10 @@ public class CPU {
         interruptState = DISABLED;
 
         executed_opcodes = new int[0xff];
+        extended_opcodes = new int[0xff];
         for (int i = 0; i < executed_opcodes.length; ++i) {
             executed_opcodes[i] = 0;
+            extended_opcodes[i] = 0;
         }
 
 
@@ -127,7 +129,6 @@ public class CPU {
     public int ExecuteOpcode() {
 
         if (executionHalted) {
-//            System.out.println("execution halted returning 4");
             return 4; // to keep other things running
         }
 
@@ -138,30 +139,22 @@ public class CPU {
             interruptState = DISABLED;
         }
 
-//        dumpRegisters();
-//        System.out.println();
-
-        if (pc == 0xe0) {
-            printOpcodeCount();
-            dumpRegisters();
-            System.exit(1);
-//            System.out.println(Integer.toHexString((registers.getReg(F))));
-            System.out.println(Integer.toHexString((registers.getReg(B))));
-
+        if (pc == 0xc27d && !debug) {
+//            enterDebugMode();
         }
 
+
         int opcode = memory.readByte(pc);
+        if (debug) {
+            System.out.println("0x" + Integer.toHexString(opcode));
+        }
+
         pc++;
-
-//        if (pc >= 0xa) {
-//            System.out.println("PC: 0x" + Integer.toHexString(pc));
-//        }
-
+//        System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
+//        dumpRegisters();
 
         executed_opcodes[opcode]++;
 
-//            System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
-//            System.out.println("Pc: 0x" + Integer.toHexString(pc - 1));
 
         int cycles = runInstruction(opcode);
 
@@ -185,12 +178,8 @@ public class CPU {
         String input;
         System.out.print(" > ");
         input = sc.nextLine();
-        int scanLine = memory.getScanLine();
         while (!"q".equals(input)) {
-            if ("p".equals(input)) {
-                dumpRegisters();
-            } else if ("n".equals(input)) {
-                dumpRegisters();
+            if ("n".equals(input)) {
                 int cycles = ExecuteOpcode();
                 gpu.updateGraphics(cycles);
             } 
@@ -217,6 +206,12 @@ public class CPU {
                     writer.println("opcode: 0x" + Integer.toHexString(i) + "   count: " + executed_opcodes[i]);
                 }
             }
+            writer.println("EXTENDED OPCODES");
+            for (int i = 0; i < 0xff; ++i) {
+                if (extended_opcodes[i] > 0) {
+                    writer.println("opcode: 0x" + Integer.toHexString(i) + "   count: " + extended_opcodes[i]);
+                }
+            }
             writer.close();
         } catch (IOException e) {
             System.err.println("exception");
@@ -241,12 +236,12 @@ public class CPU {
 
             /*****8 BIT LOADS*****/
             // LD nn,n
-            case 0x06: return eightBitLdNnN(B);
-            case 0x0e: return eightBitLdNnN(C);
-            case 0x16: return eightBitLdNnN(D);
-            case 0x1e: return eightBitLdNnN(E);
-            case 0x26: return eightBitLdNnN(H);
-            case 0x2e: return eightBitLdNnN(L);
+            case 0x06: return ld_NN_N(B);
+            case 0x0e: return ld_NN_N(C);
+            case 0x16: return ld_NN_N(D);
+            case 0x1e: return ld_NN_N(E);
+            case 0x26: return ld_NN_N(H);
+            case 0x2e: return ld_NN_N(L);
             //LD r1,r2
             case 0x7f: return eightBitLdR1R2(A, A);
             case 0x78: return eightBitLdR1R2(A, B);
@@ -307,20 +302,20 @@ public class CPU {
             // special 8 bit load from memory
             case 0x36: return eightBitLoadFromMem();
             // LD A,n
-            case 0x0a: return eightBitLdAN(GBRegisters.Reg.BC);
-            case 0x1a: return eightBitLdAN(GBRegisters.Reg.DE);
+            case 0x0a: return eightBitLdAN(BC);
+            case 0x1a: return eightBitLdAN(DE);
             case 0xfa: return eightBitALoadMem(true);
             case 0x3e: return eightBitALoadMem(false);
             // LD n,A
-            case 0x47: return eightBitLdR1R2(GBRegisters.Reg.B, A);
-            case 0x4f: return eightBitLdR1R2(GBRegisters.Reg.C, A);
-            case 0x57: return eightBitLdR1R2(GBRegisters.Reg.D, A);
-            case 0x5f: return eightBitLdR1R2(GBRegisters.Reg.E, A);
-            case 0x67: return eightBitLdR1R2(GBRegisters.Reg.H, A);
-            case 0x6f: return eightBitLdR1R2(GBRegisters.Reg.L, A);
-            case 0x02: return eightBitLdR1R2(GBRegisters.Reg.BC, A);
-            case 0x12: return eightBitLdR1R2(GBRegisters.Reg.DE, A);
-            case 0x77: return eightBitLdR1R2(GBRegisters.Reg.HL, A);
+            case 0x47: return eightBitLdR1R2(B, A);
+            case 0x4f: return eightBitLdR1R2(C, A);
+            case 0x57: return eightBitLdR1R2(D, A);
+            case 0x5f: return eightBitLdR1R2(E, A);
+            case 0x67: return eightBitLdR1R2(H, A);
+            case 0x6f: return eightBitLdR1R2(L, A);
+            case 0x02: return eightBitLdR1R2(BC, A);
+            case 0x12: return eightBitLdR1R2(DE, A);
+            case 0x77: return eightBitLdR1R2(HL, A);
             case 0xea: return eightBitLoadToMem();
             // LD A, (C)
             case 0xf2: return eightBitLDfromAC();
@@ -332,74 +327,74 @@ public class CPU {
             // LDI (HL), A
             case 0x2a: return eightBitLDIA();
             // LDI (HL), A
-            case 0x22: return eightBitLDIHLA();
+            case 0x22: return LDI_HL_A();    //return eightBitLDIHLA();
             // LDH (n), A, LDH A,(n)
             case 0xe0: return eightBitLdhA(true);
             case 0xf0: return eightBitLdhA(false);
             
             /*****16 BIT LOADS*****/
             //LD n, nn
-            case 0x01: return sixteenBitLdNNn(GBRegisters.Reg.BC);
-            case 0x11: return sixteenBitLdNNn(GBRegisters.Reg.DE);
-            case 0x21: return sixteenBitLdNNn(GBRegisters.Reg.HL);
-            case 0x31: return sixteenBitLdNNnSP();
+            case 0x01: return ld_N_NN(BC);
+            case 0x11: return ld_N_NN(DE);
+            case 0x21: return ld_N_NN(HL);
+            case 0x31: return ld_SP_NN();
             //LD SP,HL
             case 0xf9: return sixteenBitLdSpHl();
             case 0xf8: return sixteenBitLdHlSp();
             //LD (nn), SP
             case 0x08: return sixteenBitLdNnSp();
             //Push nn to stack
-            case 0xf5: return pushNN(GBRegisters.Reg.AF);
-            case 0xc5: return pushNN(GBRegisters.Reg.BC);
-            case 0xd5: return pushNN(GBRegisters.Reg.DE);
-            case 0xe5: return pushNN(GBRegisters.Reg.HL);
+            case 0xf5: return pushNN(AF);
+            case 0xc5: return pushNN(BC);
+            case 0xd5: return pushNN(DE);
+            case 0xe5: return pushNN(HL);
             //POP nn off stack
-            case 0xf1: return popNN(GBRegisters.Reg.AF);
-            case 0xc1: return popNN(GBRegisters.Reg.BC);
-            case 0xd1: return popNN(GBRegisters.Reg.DE);
-            case 0xe1: return popNN(GBRegisters.Reg.HL);
+            case 0xf1: return popNN(AF);
+            case 0xc1: return popNN(BC);
+            case 0xd1: return popNN(DE);
+            case 0xe1: return popNN(HL);
             
             
             /******8-BIT ALU*****/
             //ADD A,n
             case 0x87: return addAN(A, false, false);
-            case 0x80: return addAN(GBRegisters.Reg.B, false, false);
-            case 0x81: return addAN(GBRegisters.Reg.C, false, false);
-            case 0x82: return addAN(GBRegisters.Reg.D, false, false);
-            case 0x83: return addAN(GBRegisters.Reg.E, false, false);
-            case 0x84: return addAN(GBRegisters.Reg.H, false, false);
-            case 0x85: return addAN(GBRegisters.Reg.L, false, false);                
-            case 0x86: return addAN(GBRegisters.Reg.HL, false, false);                
+            case 0x80: return addAN(B, false, false);
+            case 0x81: return addAN(C, false, false);
+            case 0x82: return addAN(D, false, false);
+            case 0x83: return addAN(E, false, false);
+            case 0x84: return addAN(H, false, false);
+            case 0x85: return addAN(L, false, false);
+            case 0x86: return addAN(HL, false, false);
             case 0xc6: return addAN(A, false, true);                
             //ADC A,n
             case 0x8f: return addAN(A, true, false);
-            case 0x88: return addAN(GBRegisters.Reg.B, true, false); 
-            case 0x89: return addAN(GBRegisters.Reg.C, true, false);
-            case 0x8a: return addAN(GBRegisters.Reg.D, true, false);
-            case 0x8b: return addAN(GBRegisters.Reg.E, true, false);
-            case 0x8c: return addAN(GBRegisters.Reg.H, true, false);
-            case 0x8d: return addAN(GBRegisters.Reg.L, true, false);
-            case 0x8e: return addAN(GBRegisters.Reg.HL, true, false);
+            case 0x88: return addAN(B, true, false);
+            case 0x89: return addAN(C, true, false);
+            case 0x8a: return addAN(D, true, false);
+            case 0x8b: return addAN(E, true, false);
+            case 0x8c: return addAN(H, true, false);
+            case 0x8d: return addAN(L, true, false);
+            case 0x8e: return addAN(HL, true, false);
             case 0xce: return addAN(A, true, true);
             //SUB n
             case 0x97: return subAN(A, false, false);
-            case 0x90: return subAN(GBRegisters.Reg.B, false, false);
-            case 0x91: return subAN(GBRegisters.Reg.C, false, false);
-            case 0x92: return subAN(GBRegisters.Reg.D, false, false);                   
-            case 0x93: return subAN(GBRegisters.Reg.E, false, false);            
-            case 0x94: return subAN(GBRegisters.Reg.H, false, false);            
-            case 0x95: return subAN(GBRegisters.Reg.L, false, false);            
-            case 0x96: return subAN(GBRegisters.Reg.HL, false, false);
+            case 0x90: return subAN(B, false, false);
+            case 0x91: return subAN(C, false, false);
+            case 0x92: return subAN(D, false, false);
+            case 0x93: return subAN(E, false, false);
+            case 0x94: return subAN(H, false, false);
+            case 0x95: return subAN(L, false, false);
+            case 0x96: return subAN(HL, false, false);
             case 0xd6: return subAN(A, false, true);
             //SUBC A,n    
             case 0x9f: return subAN(A, true, false); 
-            case 0x98: return subAN(GBRegisters.Reg.B, true, false);
-            case 0x99: return subAN(GBRegisters.Reg.C, true, false);
-            case 0x9a: return subAN(GBRegisters.Reg.D, true, false);
-            case 0x9b: return subAN(GBRegisters.Reg.E, true, false);
-            case 0x9c: return subAN(GBRegisters.Reg.H, true, false);
-            case 0x9d: return subAN(GBRegisters.Reg.L, true, false);
-            case 0x9e: return subAN(GBRegisters.Reg.HL, true, false);
+            case 0x98: return subAN(B, true, false);
+            case 0x99: return subAN(C, true, false);
+            case 0x9a: return subAN(D, true, false);
+            case 0x9b: return subAN(E, true, false);
+            case 0x9c: return subAN(H, true, false);
+            case 0x9d: return subAN(L, true, false);
+            case 0x9e: return subAN(HL, true, false);
             case 0xde: return subAN(A, true, true);
             //AND N
             case 0xa7: return andN(A, false);
@@ -413,52 +408,52 @@ public class CPU {
             case 0xe6: return andN(A, true);
             //OR N
             case 0xb7: return orN(A, false);
-            case 0xb0: return orN(GBRegisters.Reg.B, false);            
-            case 0xb1: return orN(GBRegisters.Reg.C, false);
-            case 0xb2: return orN(GBRegisters.Reg.D, false);            
-            case 0xb3: return orN(GBRegisters.Reg.E, false);
-            case 0xb4: return orN(GBRegisters.Reg.H, false);            
-            case 0xb5: return orN(GBRegisters.Reg.L, false);            
-            case 0xb6: return orN(GBRegisters.Reg.HL, false);
+            case 0xb0: return orN(B, false);
+            case 0xb1: return orN(C, false);
+            case 0xb2: return orN(D, false);
+            case 0xb3: return orN(E, false);
+            case 0xb4: return orN(H, false);
+            case 0xb5: return orN(L, false);
+            case 0xb6: return orN(HL, false);
             case 0xf6: return orN(A, true);         
             // XOR n
             case 0xaf: return xorN(A, false);
-            case 0xa8: return xorN(GBRegisters.Reg.B, false);            
-            case 0xa9: return xorN(GBRegisters.Reg.C, false);
-            case 0xaa: return xorN(GBRegisters.Reg.D, false);
-            case 0xab: return xorN(GBRegisters.Reg.E, false);
-            case 0xac: return xorN(GBRegisters.Reg.H, false);
-            case 0xad: return xorN(GBRegisters.Reg.L, false);
-            case 0xae: return xorN(GBRegisters.Reg.HL, false);
+            case 0xa8: return xorN(B, false);
+            case 0xa9: return xorN(C, false);
+            case 0xaa: return xorN(D, false);
+            case 0xab: return xorN(E, false);
+            case 0xac: return xorN(H, false);
+            case 0xad: return xorN(L, false);
+            case 0xae: return xorN(HL, false);
             case 0xee: return xorN(A, true);
             // CP n
             case 0xbf: return cpN(A, false);
-            case 0xb8: return cpN(GBRegisters.Reg.B, false);
-            case 0xb9: return cpN(GBRegisters.Reg.C, false);
-            case 0xba: return cpN(GBRegisters.Reg.D, false);
-            case 0xbb: return cpN(GBRegisters.Reg.E, false);    
-            case 0xbc: return cpN(GBRegisters.Reg.H, false);
-            case 0xbd: return cpN(GBRegisters.Reg.L, false);    
-            case 0xbe: return cpN(GBRegisters.Reg.HL, false);    
+            case 0xb8: return cpN(B, false);
+            case 0xb9: return cpN(C, false);
+            case 0xba: return cpN(D, false);
+            case 0xbb: return cpN(E, false);
+            case 0xbc: return cpN(H, false);
+            case 0xbd: return cpN(L, false);
+            case 0xbe: return cpN(HL, false);
             case 0xfe: return cpN(A, true);
             // INC n
             case 0x3c: return incN(A);
-            case 0x04: return incN(GBRegisters.Reg.B);    
-            case 0x0c: return incN(GBRegisters.Reg.C);
-            case 0x14: return incN(GBRegisters.Reg.D);            
-            case 0x1c: return incN(GBRegisters.Reg.E);
-            case 0x24: return incN(GBRegisters.Reg.H);            
-            case 0x2c: return incN(GBRegisters.Reg.L);            
-            case 0x34: return incN(GBRegisters.Reg.HL);
+            case 0x04: return incN(B);
+            case 0x0c: return incN(C);
+            case 0x14: return incN(D);
+            case 0x1c: return incN(E);
+            case 0x24: return incN(H);
+            case 0x2c: return incN(L);
+            case 0x34: return incN(HL);
             // DEC n
             case 0x3d: return decN(A);
-            case 0x05: return decN(GBRegisters.Reg.B);
-            case 0x0d: return decN(GBRegisters.Reg.C);            
-            case 0x15: return decN(GBRegisters.Reg.D);            
-            case 0x1d: return decN(GBRegisters.Reg.E);
-            case 0x25: return decN(GBRegisters.Reg.H);            
-            case 0x2d: return decN(GBRegisters.Reg.L);
-            case 0x35: return decN(GBRegisters.Reg.HL);            
+            case 0x05: return decN(B);
+            case 0x0d: return decN(C);
+            case 0x15: return decN(D);
+            case 0x1d: return decN(E);
+            case 0x25: return decN(H);
+            case 0x2d: return decN(L);
+            case 0x35: return decN(HL);
             //ADD HL,n
             case 0x09: return sixteenBitAdd(GBRegisters.Reg.BC, false);
             case 0x19: return sixteenBitAdd(GBRegisters.Reg.DE, false);
@@ -467,10 +462,10 @@ public class CPU {
             //ADD SP,n
             case 0xe8: return addSPN();
             //INC nn
-            case 0x03: return incNN(GBRegisters.Reg.BC, false);
-            case 0x13: return incNN(GBRegisters.Reg.DE, false);
-            case 0x23: return incNN(GBRegisters.Reg.HL, false);
-            case 0x33: return incNN(GBRegisters.Reg.BC, true);
+            case 0x03: return incNN(BC, false);
+            case 0x13: return incNN(DE, false);
+            case 0x23: return incNN(HL, false);
+            case 0x33: return incNN(BC, true);
             //DEC nn
             case 0x0B: return decNN(GBRegisters.Reg.BC, false);
             case 0x1B: return decNN(GBRegisters.Reg.DE, false);
@@ -509,7 +504,7 @@ public class CPU {
             
             //TODO HALT,STOP
             case 0x76: System.out.println("HALT");return halt();
-            case 0x10: System.out.println("stop");return stop();
+            case 0x10: return stop();
             case 0xf3: return disableInterrupts();
             case 0xfb: return enableInterrupts();
 
@@ -548,7 +543,7 @@ public class CPU {
             case 0x17: return rlA();      
             //RRCA
             case 0x0f: return rrcA();
-            case 0x1f: return rrA();
+            case 0x1f: return rrN(A);
                        
                        
             default:
@@ -564,7 +559,8 @@ public class CPU {
     private int extendedOpcode() {
         int opcode = memory.readByte(pc);
         pc++;        
-        
+
+        extended_opcodes[opcode]++;
         switch(opcode) {
             //SWAP N
             case 0x37: return swapN(A);
@@ -866,20 +862,99 @@ public class CPU {
         }
         return 0;
     }
-    
-    
+
+
+
+    private void testDEC() {
+        int i = registers.getReg(A);
+
+        for (int j = 0; j < 10000; ++j) {
+            i = (i - 1) & 0xff;
+            decN(A);
+            if (i != registers.getReg(A)) {
+                System.out.println("FAILED");
+            }
+        }
+
+        registers.setReg(B, 0x10);
+        decN(B);
+        if (isSet(registers.getReg(F), 5)) {
+            System.out.println("PASSED");
+        } else {
+            System.out.println(Integer.toHexString(registers.getReg(F)));
+            System.out.println(registers.getReg(B));
+            System.exit(1);
+        }
+
+
+
+        //System.out.println("PASSED");
+    }
+
+
+
+    /**
+     *
+     * tests the various register loading functions
+     *
+     */
+    private void testLoadFunctions() {
+        pc = 0xc000;
+
+
+        for (int i = 0; i < 100; ++i) {
+            pc = 0xc000;
+            int data = ThreadLocalRandom.current().nextInt() & 0xff;
+            memory.writeByte(pc, data);
+            ld_NN_N(A);
+            if (registers.getReg(A) != data) {
+                System.exit(1);
+            }
+        }
+        for (int i = 0; i < 100; ++i) {
+            pc = 0xc000;
+            int data = ThreadLocalRandom.current().nextInt() & 0xff;
+            memory.writeByte(pc, data & 0xff);
+            ld_N_NN(H);
+            if (registers.getReg(H) != data) {
+                System.out.println(data + "   " + registers.getReg(H));
+
+                System.out.println("failed");
+                System.exit(1);
+            }
+        }
+        for (int i = 0; i < 100; ++i) {
+            pc = 0xc000;
+            int data = ThreadLocalRandom.current().nextInt() & 0xff;
+            memory.writeByte(pc, data & 0xff);
+            ld_N_NN(E);
+            if (registers.getReg(E) != data) {
+                System.out.println(data + "   " + registers.getReg(E));
+
+                System.out.println("failed");
+                System.exit(1);
+            }
+        }
+        System.out.println("test passed");
+    }
+
+
+
+
+
+
     /**
      * LD nn,n. Put value nn into n.
      * 
-     * <p>nn = B,C,D,E,H,L,BC,DE,HL,SP
+     * nn = B,C,D,E,H,L
      * n = 8 bit immediate value
      * 
-     * @param register (required) register (nn) to load to
+     * @param reg (required) register to load to
      */ 
-    private int eightBitLdNnN(GBRegisters.Reg register) {
+    private int ld_NN_N(GBRegisters.Reg reg) {
         int data = memory.readByte(pc);
         pc++;
-        registers.setReg(register, data);
+        registers.setReg(reg, data);
         return 8;   
     }
     
@@ -906,7 +981,7 @@ public class CPU {
             return 4;
         }
     }
-    
+
     /**
      * Special function for opcode 0x36
      * 
@@ -930,11 +1005,9 @@ public class CPU {
      * Special function for opcode 0xea
      */ 
     private int eightBitLoadToMem() {
-        int address = memory.readByte(pc);
-        pc++;
-        address = address | (memory.readByte(pc) << 8);
-        pc++;
-        memory.writeByte(address, registers.getReg(GBRegisters.Reg.A));
+        int address = readWordFromMem(pc);
+        pc += 2;
+        memory.writeByte(address, registers.getReg(A));
         return 16;
     }
     
@@ -948,7 +1021,7 @@ public class CPU {
      */ 
     private int eightBitLdAN(GBRegisters.Reg src) {
             int data = memory.readByte(registers.getReg(src));
-            registers.setReg(GBRegisters.Reg.A, data);
+            registers.setReg(A, data);
             return 8;
     }
 
@@ -962,16 +1035,14 @@ public class CPU {
      */ 
     private int eightBitALoadMem(boolean isPointer) {
         if (isPointer) {
-            int address = memory.readByte(pc);
-            pc++;
-            address = address | (memory.readByte(pc) << 8);
-            pc++;
-            registers.setReg(GBRegisters.Reg.A, memory.readByte(address));
+            int address = readWordFromMem(pc);
+            pc += 2;
+            registers.setReg(A, memory.readByte(address));
             return 16;   
         } else {
             int data = memory.readByte(pc);
             pc++;
-            registers.setReg(GBRegisters.Reg.A, data);
+            registers.setReg(A, data);
             return 8;
         }
     }
@@ -1041,8 +1112,8 @@ public class CPU {
      * 
      */ 
     private int eightBitStoreHL() {
-        int address = registers.getReg(GBRegisters.Reg.HL);
-        int data = registers.getReg(GBRegisters.Reg.A);
+        int address = registers.getReg(HL);
+        int data = registers.getReg(A);
         
         memory.writeByte(address, data);
         registers.setReg(GBRegisters.Reg.HL, address - 1);
@@ -1055,9 +1126,9 @@ public class CPU {
      * 
      */ 
     private int eightBitLDIA() {
-        int address = registers.getReg(GBRegisters.Reg.HL);
-        registers.setReg(GBRegisters.Reg.A, memory.readByte(address));
-        registers.setReg(GBRegisters.Reg.HL, address + 1);
+        int address = registers.getReg(HL);
+        registers.setReg(A, memory.readByte(address));
+        registers.setReg(HL, address + 1);
         return 8;
     }
     
@@ -1074,8 +1145,20 @@ public class CPU {
         registers.setReg(GBRegisters.Reg.HL, address + 1);
         return 8;
     }
-    
-    
+
+    private int LDI_HL_A() {
+        int address = registers.getReg(HL);
+        int data = registers.getReg(A);
+
+        memory.writeByte(address, data);
+        registers.setReg(HL, address + 1);
+        return 8;
+    }
+
+
+
+
+
     /**
      * LDH (n), A and LDH A, (n)
      * 
@@ -1089,11 +1172,11 @@ public class CPU {
         int offset = memory.readByte(pc);
         pc++;
         if (writeToMem) {
-            int data = registers.getReg(GBRegisters.Reg.A);
+            int data = registers.getReg(A);
             memory.writeByte(0xff00 + offset, data);
         } else {
             int data = memory.readByte(0xff00 + offset);
-            registers.setReg(GBRegisters.Reg.A, data);
+            registers.setReg(A, data);
         }
         return 12;   
     }
@@ -1107,29 +1190,22 @@ public class CPU {
      * nn - 16 Bit immediate value, n = BC, DE, HL
      * 
      */ 
-    private int sixteenBitLdNNn(GBRegisters.Reg reg) {
-        // read two byte data from memory LSB first
-        int data = memory.readByte(pc);
-        pc++;
-        data = (memory.readByte(pc) << 8) | data;
-        pc++;
+    private int ld_N_NN(GBRegisters.Reg reg) {
+        int data = readWordFromMem(pc);
+        pc += 2;
         registers.setReg(reg, data);
-
         return 12;
     }
     
     /**
      * LD n, nn
-     * Put value nn into SP
+     * Put 2 byte immediate
+     * value nn into SP
      * 
      */ 
-    private int sixteenBitLdNNnSP() {
-        int data = memory.readByte(pc);
-        pc++;
-        data = data | (memory.readByte(pc) << 8);
-        pc++;
-        
-        sp = data;
+    private int ld_SP_NN() {
+        sp = readWordFromMem(pc);
+        pc += 2;
         return 12;
     }
     
@@ -1164,7 +1240,7 @@ public class CPU {
         registers.setReg(GBRegisters.Reg.HL, data);
 
         registers.resetAll();
-        // NOT REALLY SURE HERE, CPU DOCUMENTATION NOT EXACT
+        // todo NOT REALLY SURE HERE, CPU DOCUMENTATION NOT EXACT
         if (((sp + offset) & 0x1f) > 0xf) {
             registers.setH();
         }
@@ -1197,11 +1273,8 @@ public class CPU {
      * @param src (required) register pair to push to stack
      */ 
     private int pushNN(GBRegisters.Reg src) {
-        int registerPair = registers.getReg(src);
-        sp--;
-        memory.writeByte(sp, (registerPair & 0xff00) >> 8);
-        sp--;
-        memory.writeByte(sp, (registerPair & 0xff));
+        int reg = registers.getReg(src);
+        writeWordToMem(reg);
         return 16;
     }
     
@@ -1212,10 +1285,9 @@ public class CPU {
      * @param dest (required) register to store data in
      */ 
     private int popNN(GBRegisters.Reg dest) {
-        int data = memory.readByte(sp);
-        sp++;
-        data = data | (memory.readByte(sp) << 8);
-        sp++;
+        //todo OAM?
+        int data = readWordFromMem(sp);
+        sp += 2;
         registers.setReg(dest, data);
         return 12;
     }
@@ -1295,14 +1367,14 @@ public class CPU {
             toSub = memory.readByte(pc);
             pc++;
             cycles = 8;
-        } else if (src == GBRegisters.Reg.HL) {
+        } else if (src == HL) {
             toSub = memory.readByte(registers.getReg(src));
             cycles = 8;
         } else {
             toSub = registers.getReg(src);
             cycles = 4;
         }
-        //if adding carry and carry is set
+        //if subtracting carry and carry is set
         if (addCarry && isSet(registers.getReg(F), CARRY_F)) {
             toSub += 1;
         }
@@ -1317,9 +1389,9 @@ public class CPU {
         }
         registers.setN();
         if ((regA & 0xf) - (toSub & 0xf) >= 0) {
-            registers.setH(); //no borrow
+            registers.setH(); //no borrow from bit 4
         }
-        if (toSub < regA) {
+        if (toSub <= regA) {
             registers.setC(); //no borrow
         }
         return cycles;
@@ -1358,7 +1430,7 @@ public class CPU {
         registers.setReg(A, data & regA);
         
         registers.resetAll();
-        if ((data & regA) == 0) {
+        if (((data & regA) & 0xff) == 0) {
             registers.setZ();
         }    
         registers.setH();
@@ -1399,7 +1471,7 @@ public class CPU {
         registers.setReg(A, data | regA);
 
         registers.resetAll();
-        if ((data | regA) == 0) {
+        if (((data | regA) & 0xff) == 0) {
             registers.setZ();
         }    
         
@@ -1439,7 +1511,7 @@ public class CPU {
         registers.setReg(A, data ^ regA);
         
         registers.resetAll();
-        if ((data ^ regA) == 0) {
+        if (((data ^ regA) & 0xff) == 0) {
             registers.setZ();
         }    
         
@@ -1471,6 +1543,8 @@ public class CPU {
             data = memory.readByte(pc);
             pc++;
             cycles = 8;
+            System.out.println("comparing a to: " + data);
+
         } else if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 8;
@@ -1487,9 +1561,9 @@ public class CPU {
         }
         registers.setN();
         if ((regA & 0xf) < (data & 0xf)) {
-            registers.setH();
+            registers.setH(); //no borrow from bit 4
         }
-        if (regA > data) { //TODO!!! NOTE NOT REALLY SURE??????
+        if (regA < data) { //no borrow
             registers.setC();
         }
         return cycles;
@@ -1524,10 +1598,14 @@ public class CPU {
         }
         registers.resetN();
         registers.resetH();
-        if (((reg & 0xf) + 1) > 0xf) {
+        if ((reg & 0xf) == 0xf) {
+//            System.out.println("SETTING H");
+//            System.out.println(Integer.toHexString(pc));
+//            System.out.println(Integer.toHexString(reg));
             registers.setH();
+//            dumpRegisters();
         }
-        
+
         return (src == HL) ? 12 : 4;
     }
     
@@ -1561,10 +1639,10 @@ public class CPU {
         }
         registers.setN();
         registers.resetH();
-        if (((reg & 0xf) - 1) >= 0) { //NOTE UNSURE...
+        if (((reg + 1) & 0xf0) != (reg & 0xf0)) {
             registers.setH();
         }
-        
+
         return (src == HL) ? 12 : 4;
     }
     
@@ -1590,7 +1668,7 @@ public class CPU {
      */ 
     private int sixteenBitAdd(GBRegisters.Reg src, boolean addSP) {
         int toAdd;
-        int regVal = registers.getReg(GBRegisters.Reg.HL);
+        int regVal = registers.getReg(HL);
         
         if (addSP) {
             toAdd = sp;
@@ -1598,7 +1676,7 @@ public class CPU {
             toAdd = registers.getReg(src);
         }
         
-        registers.setReg(GBRegisters.Reg.HL, regVal + toAdd);
+        registers.setReg(HL, regVal + toAdd);
         
         //flags
         registers.resetN();
@@ -1652,9 +1730,10 @@ public class CPU {
     private int incNN(GBRegisters.Reg reg, boolean incSP) {
         if (incSP) {
             sp++;
+            sp &= 0xffff;
         } else {
             int value = registers.getReg(reg);
-            registers.setReg(reg, value + 1);
+            registers.setReg(reg, (value + 1) & 0xffff);
         }
         return 8;
     }
@@ -1800,10 +1879,7 @@ public class CPU {
      * LSB first
      */ 
     private int jump() {
-        int address = memory.readByte(pc);
-        pc++;
-        address = address | (memory.readByte(pc) << 8);
-        pc = address;
+        pc = readWordFromMem(pc);
         return 12;
     }
     
@@ -1851,7 +1927,7 @@ public class CPU {
      * Jump to address contained in HL
      */ 
     private int jumpHL() {
-        pc = registers.getReg(GBRegisters.Reg.HL);
+        pc = registers.getReg(HL);
         return 4;
     }
     
@@ -1861,7 +1937,10 @@ public class CPU {
      * add n to current address and jump to it
      */ 
     private int jumpN() {
-        pc += (1 +  (byte)memory.readByte(pc));
+        byte offset = (byte)memory.readByte(pc);
+        pc++;
+        pc += offset;
+//        pc += (1 + (byte)memory.readByte(pc));
         return 8;
     }
 
@@ -1881,24 +1960,36 @@ public class CPU {
         
         switch (opcode) {
             case 0x28:
-                if ((flags & 0x80) == 0x80) {
+                if (isSet(flags, ZERO_F)) {
                     pc += offset;
-                }   
+                }
+/*                if ((flags & 0x80) == 0x80) {
+                    pc += offset;
+                }*/
                 break;
             case 0x20:
-                if ((flags & 0x80) == 0x0) {
+                if (!isSet(flags, ZERO_F)) {
                     pc += offset;
-                }  
+                }
+/*                if ((flags & 0x80) == 0x0) {
+                    pc += offset;
+                }*/
                 break;
             case 0x38:
-                if ((flags & 0x10) == 0x10) {
+                if (isSet(flags, CARRY_F)) {
                     pc += offset;
-                }  
+                }
+/*                if ((flags & 0x10) == 0x10) {
+                    pc += offset;
+                }*/
                 break;
             case 0x30:
-                if ((flags & 0x10) == 0x0) {
+                if (!isSet(flags, CARRY_F)) {
                     pc += offset;
-                }  
+                }
+/*                if ((flags & 0x10) == 0x0) {
+                    pc += offset;
+                }*/
                 break;
             default:
                 break;
@@ -1911,14 +2002,12 @@ public class CPU {
      * Call nn
      * 
      * push address of next instruction onto stack and jump to address 
-     * nn
+     * nn (nn is 16 bit immediate value)
      * 
      */ 
     private int call() {
-        int address = memory.readByte(pc);
-        pc++;
-        address = (memory.readByte(pc) << 8) | address;
-        pc++;
+        int address = readWordFromMem(pc);
+        pc += 2;
         pushWordToStack(pc);
         pc = address;
         return 12;   
@@ -1936,23 +2025,23 @@ public class CPU {
         int flags = registers.getReg(GBRegisters.Reg.F);
         
         switch(opcode) {
-            case 0xcc:
-                if ((flags & 0x80) == 0x80) {
-                    return call();
-                }   
-                break;
             case 0xc4:
-                if ((flags & 0x80) == 0x0) {
+                if (!isSet(flags, ZERO_F)) {
                     return call();
                 }   
                 break;
-            case 0xdc:
-                if ((flags & 0x10) == 0x10) {
+            case 0xcc:
+                if (isSet(flags, ZERO_F)) {
                     return call();
                 }   
                 break;
             case 0xd4:
-                if ((flags & 0x10) == 0x0) {
+                if (!isSet(flags, CARRY_F)) {
+                    return call();
+                }   
+                break;
+            case 0xd0:
+                if (isSet(flags, CARRY_F)) {
                     return call();
                 }   
                 break;
@@ -1969,7 +2058,9 @@ public class CPU {
      * pop two bytes from stack and jump to that address
      */ 
     private int ret() {
-        pc = popWordFromStack();
+//        pc = popWordFromStack();
+        pc = readWordFromMem(sp);
+        sp += 2;
         return 8;
     }
     
@@ -1982,7 +2073,9 @@ public class CPU {
      */ 
     private int retI() {
         interruptState = DELAY_ON;
-        pc = popWordFromStack();
+//        pc = popWordFromStack();
+        pc = readWordFromMem(sp);
+        sp += 2;
         return 8;
     }
     
@@ -2033,26 +2126,26 @@ public class CPU {
      * 
      */ 
     private int retC(int opcode) {
-        int flags = registers.getReg(GBRegisters.Reg.F);
+        int flags = registers.getReg(F);
         
         switch(opcode) {
-            case 0xc8:
-                if ((flags & 0x80) == 0x80) {
-                    return ret();
-                } 
-                break;
             case 0xc0:
-                if ((flags & 0x80) == 0x0) {
+                if (!isSet(flags, ZERO_F)) {
                     return ret();
                 } 
                 break;
-            case 0xd8:
-                if ((flags & 0x10) == 0x10) {
+            case 0xc8:
+                if (isSet(flags, ZERO_F)) {
+                    return ret();
+                }
+                break;
+            case 0xd0:
+                if (!isSet(flags, CARRY_F)) {
                     return ret();
                 }   
                 break;
-            case 0xd0:
-                if ((flags & 0x10) == 0x0) {
+            case 0xd8:
+                if (isSet(flags, CARRY_F)) {
                     return ret();
                 }   
                 break;
@@ -2341,9 +2434,9 @@ public class CPU {
     private int rrN(GBRegisters.Reg src) {
         int data;
         int cycles;
-        int flags = registers.getReg(GBRegisters.Reg.F);
+        int flags = registers.getReg(F);
         
-        if (src == GBRegisters.Reg.HL) {
+        if (src == HL) {
             data = memory.readByte(registers.getReg(src));
             cycles = 16;
         } else {
@@ -2353,9 +2446,11 @@ public class CPU {
         
         int lsb = data & 0x1;
         
-        data = data >> 1;
-        data |= (flags & 0x10) << 3;
-        
+        data >>= 1;
+        if (isSet(flags, CARRY_F)) {
+            data |= 0x80;
+        }
+
         registers.resetAll();
         if (data == 0) {
             registers.setZ();
@@ -2364,7 +2459,7 @@ public class CPU {
             registers.setC();
         }
         
-        if (src == GBRegisters.Reg.HL) {
+        if (src == HL) {
             memory.writeByte(registers.getReg(src), data);
         } else {
             registers.setReg(src, data);
@@ -2425,7 +2520,7 @@ public class CPU {
         int cycles;
         int data;
         
-        if (reg == GBRegisters.Reg.HL) {
+        if (reg == HL) {
             data = memory.readByte(registers.getReg(reg));
             cycles = 16;
         } else {
@@ -2435,9 +2530,14 @@ public class CPU {
         int lsb = data & 0x1;
         
         if (unsignedShift) {
-            data = data >>> 1;
-        } else {
             data = data >> 1;
+            if (isSet(data, 7)) {
+                data = data & 0x3f;
+            }
+        } else {
+            int bit7 = data & 0x80;
+            data = data >> 1;
+            data |= bit7;
         }
         
         registers.resetAll();
@@ -2463,14 +2563,16 @@ public class CPU {
      * 
      */ 
     public void dumpRegisters() {
-        System.out.println("A: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.A)));
-        System.out.println("B: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.B)));
-        System.out.println("C: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.C)));
-        System.out.println("D: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.D)));
-        System.out.println("E: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.E)));
-        System.out.println("F: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.F)));
-        System.out.println("H: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.H)));
-        System.out.println("L: 0x" + Integer.toHexString(registers.getReg(GBRegisters.Reg.L)));
+        System.out.println("A:  0x" + Integer.toHexString(registers.getReg(A)));
+        System.out.println("B:  0x" + Integer.toHexString(registers.getReg(B)));
+        System.out.println("C:  0x" + Integer.toHexString(registers.getReg(C)));
+        System.out.println("D:  0x" + Integer.toHexString(registers.getReg(D)));
+        System.out.println("E:  0x" + Integer.toHexString(registers.getReg(E)));
+        System.out.println("F:  0x" + Integer.toHexString(registers.getReg(F)));
+        System.out.println("H:  0x" + Integer.toHexString(registers.getReg(H)));
+        System.out.println("L:  0x" + Integer.toHexString(registers.getReg(L)));
+        System.out.println("PC: 0x" + Integer.toHexString(pc));
+        System.out.println("SP: 0x" + Integer.toHexString(sp));
     }
     
     
@@ -2746,6 +2848,38 @@ public class CPU {
     private int stop() {
         pc++;
         return 4;
+    }
+
+    /**
+     * reads a 16 bit word from
+     * memory in little endian order
+     * (least significant byte first)
+     * located at pc
+     *
+     * @return 16bit word from memory
+     */
+    private int readWordFromMem(int address) {
+        int data = memory.readByte(address);
+        data = (memory.readByte(address + 1) << 8) | data;
+
+        return data;
+    }
+
+
+    /**
+     * writes a 16 bit word to address in memory
+     * at sp, decrements stack pointer twice
+     *
+     *
+     * @param word to write to memory
+     */
+    private void writeWordToMem(int word) {
+        sp--;
+        memory.writeByte(sp, (word & 0xff00) >> 8);
+        sp--;
+        memory.writeByte(sp, word & 0xff);
+
+
     }
 
 
