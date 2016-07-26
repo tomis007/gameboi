@@ -32,8 +32,6 @@ import javax.swing.JFrame;
  * 
  * Updates the graphics according to CPU and memory
  * 
- * NOTE: doesnt work yet...
- * 
  * Referred heavily to:
  * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
  * 
@@ -120,9 +118,6 @@ public class GPU {
     public void updateGraphics(int cycles) {
         updateLCDMode();
         
-        if (!lcdEnabled()) {
-            return; //don't need to do anything
-        }
 
         scanLineClock -= cycles;
 
@@ -138,7 +133,7 @@ public class GPU {
         } else if (currentScanLine > 152) {
             lcdscreen.repaint();
             memory.setScanLine(0);
-            scanLineClock = 4560; //account for vertical blank timing TODO
+            scanLineClock = 4560; //account for vertical blank timing
         } else if (currentScanLine < 144) {
             renderScan();
         }
@@ -280,10 +275,8 @@ public class GPU {
 
 
         //which of 32 rows of tiles to use
-        int tileRowIndex = ((scY + currentScanLine) / 8) * 32; //+ currentScanLine
+        int tileRowIndex = (((scY + currentScanLine) / 8) % 32) * 32; //+ currentScanLine
 
-
-        //TODO!!!!! Lots of unnecessary computation
         for (int i = 0; i < 160; ++i) {
             int tileColIndex = (scX + i) / 8;
             byte tileNumber = (byte)memory.readByte(tileColIndex + tileRowIndex + mapBaseAddress);
@@ -325,8 +318,8 @@ public class GPU {
         int currentScanLine = memory.getScanLine();
 
         //scan sprites and draw ones that
-        //are on current scanline todo correct priorities
-//        int drawn_count = 0; todo only 10 sprites drawn on screen
+        //are on current scanline todo correct priorities, limit
+
         for (int i = 0; i < 40; ++i) {
             int yPos = memory.readByte((i * 4) + 0xfe00) - 16;
             int xPos = memory.readByte((i * 4) + 0xfe00 + 1) - 8;
@@ -335,41 +328,32 @@ public class GPU {
 
             //need to draw sprite
             if ((currentScanLine >= yPos) && (currentScanLine < (yPos + height))) {
-                System.out.println("\ncurrent scanline:" + currentScanLine);
-                System.out.println("sprite number: " + i);
-                System.out.println("yPos: " + yPos);
-                System.out.println("xPos: " + xPos);
-                System.out.println("Pattern Number: " + patternNumber);
-                System.out.println("Flags: " + Integer.toBinaryString(flags));
+                boolean flipHoriz = isSet(flags, 5);
 
-                for (int j = 0; j < 8; ++j) {
-                    int add = 0x8000 + (patternNumber * 16) + (2 * j);
-                    int pixDataA = memory.readByte(add);
-                    int pixDataB = memory.readByte(add + 1);
-                    System.out.println("0x" + Integer.toHexString(add) + "  " + Integer.toBinaryString(pixDataA));
-                    System.out.println("0x" + Integer.toHexString(add + 1) + "  " + Integer.toBinaryString(pixDataB));
+                //todo flip Vertical
+                boolean flipVert = isSet(flags, 6);
 
-
-                }
-                //System.exit(1);
-                //todo flip horizontal/vertical
                 //todo priority with background
 
 
                 //read correct pixel data from memory for appropriate line of sprite
                 int byteAddress = 0x8000 + (patternNumber * 16) + ((currentScanLine - yPos) * 2);
-                System.out.println("address: " + Integer.toHexString(byteAddress));
+
                 int pixDataA = memory.readByte(byteAddress);
                 int pixDataB = memory.readByte(byteAddress + 1);
-                System.out.println("Drawing: " + Integer.toBinaryString(pixDataA));
-                System.out.println("Drawing: " + Integer.toBinaryString(pixDataB));
 
                 for (int pixel = 0; pixel < 8; pixel++) {
-                    int colorNum = getPixelColorNum(pixDataA, pixDataB, pixel);
+                    int colorNum;
+                    if (flipHoriz) {
+                        colorNum = getPixelColorNum(pixDataA, pixDataB, 7 - pixel);
+                    } else {
+                        colorNum = getPixelColorNum(pixDataA, pixDataB, pixel);
+                    }
+
                     int paletteAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
 
                     int pixColor = getColor(colorNum, paletteAddress);
-                    System.out.println("pixel + xPos:" + (xPos + pixel) + "  pixColor: " + pixColor);
+
                     if (pixColor != 0xffffffff) {
                         screenDisplay.setRGB(xPos + pixel, currentScanLine, pixColor);
                     }
