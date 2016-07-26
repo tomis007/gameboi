@@ -543,7 +543,7 @@ public class CPU {
             case 0x17: return rlA();      
             //RRCA
             case 0x0f: return rrcA();
-            case 0x1f: return rrN(A);
+            case 0x1f: return rrN(A, false);
                        
                        
             default:
@@ -582,14 +582,14 @@ public class CPU {
             case 0x05: return rlcN(GBRegisters.Reg.L);
             case 0x06: return rlcN(GBRegisters.Reg.HL);
             //RL n
-            case 0x17: return rlN(GBRegisters.Reg.A);
-            case 0x10: return rlN(GBRegisters.Reg.B);
-            case 0x11: return rlN(GBRegisters.Reg.C);
-            case 0x12: return rlN(GBRegisters.Reg.D);
-            case 0x13: return rlN(GBRegisters.Reg.E);
-            case 0x14: return rlN(GBRegisters.Reg.H);
-            case 0x15: return rlN(GBRegisters.Reg.L);
-            case 0x16: return rlN(GBRegisters.Reg.HL);
+            case 0x17: return rlN(A);
+            case 0x10: return rlN(B);
+            case 0x11: return rlN(C);
+            case 0x12: return rlN(D);
+            case 0x13: return rlN(E);
+            case 0x14: return rlN(H);
+            case 0x15: return rlN(L);
+            case 0x16: return rlN(HL);
             //RRC n
             case 0x0f: return rrcN(GBRegisters.Reg.A);
             case 0x08: return rrcN(GBRegisters.Reg.B);
@@ -600,23 +600,23 @@ public class CPU {
             case 0x0d: return rrcN(GBRegisters.Reg.L);
             case 0x0e: return rrcN(GBRegisters.Reg.HL);
             //RR n
-            case 0x1f: return rrN(GBRegisters.Reg.A);
-            case 0x18: return rrN(GBRegisters.Reg.B);
-            case 0x19: return rrN(GBRegisters.Reg.C);
-            case 0x1a: return rrN(GBRegisters.Reg.D);
-            case 0x1b: return rrN(GBRegisters.Reg.E);
-            case 0x1c: return rrN(GBRegisters.Reg.H);
-            case 0x1d: return rrN(GBRegisters.Reg.L);
-            case 0x1e: return rrN(GBRegisters.Reg.HL);
+            case 0x1f: return rrN(A, true);
+            case 0x18: return rrN(B, true);
+            case 0x19: return rrN(C, true);
+            case 0x1a: return rrN(D, true);
+            case 0x1b: return rrN(E, true);
+            case 0x1c: return rrN(H, true);
+            case 0x1d: return rrN(L, true);
+            case 0x1e: return rrN(HL, true);
             //SLA n
-            case 0x27: return slAN(GBRegisters.Reg.A);
-            case 0x20: return slAN(GBRegisters.Reg.B);
-            case 0x21: return slAN(GBRegisters.Reg.C);
-            case 0x22: return slAN(GBRegisters.Reg.D);
-            case 0x23: return slAN(GBRegisters.Reg.E);
-            case 0x24: return slAN(GBRegisters.Reg.H);
-            case 0x25: return slAN(GBRegisters.Reg.L);
-            case 0x26: return slAN(GBRegisters.Reg.HL);
+            case 0x27: return slAN(A);
+            case 0x20: return slAN(B);
+            case 0x21: return slAN(C);
+            case 0x22: return slAN(D);
+            case 0x23: return slAN(E);
+            case 0x24: return slAN(H);
+            case 0x25: return slAN(L);
+            case 0x26: return slAN(HL);
             
             //SRA n
             case 0x2f: return srAL(GBRegisters.Reg.A, false);
@@ -1324,23 +1324,21 @@ public class CPU {
             toAdd = registers.getReg(src);
             cycles = 4;
         }
-        //if adding carry and carry is set
-        if (addCarry && isSet(registers.getReg(F), CARRY_F)) {
-            toAdd += 1;
-        }
-        
-        //add
-        registers.setReg(A, toAdd + regA);
+
+        //if adding carry and carry is set add 1
+        int carryBit = (addCarry && isSet(registers.getReg(F), CARRY_F)) ? 1 : 0;
+
+        registers.setReg(A, (toAdd + regA + carryBit) & 0xff);
         
         //flags
         registers.resetAll();
         if (registers.getReg(A) == 0) {
             registers.setZ();
         }
-        if ((regA & 0xf) + (toAdd & 0xf) > 0xf) {
+        if ((regA & 0xf) + (toAdd & 0xf) + carryBit > 0xf) {
             registers.setH();
         }
-        if (toAdd + regA > 0xff) {
+        if (toAdd + regA + carryBit > 0xff) {
             registers.setC();
         }
         
@@ -1373,13 +1371,12 @@ public class CPU {
             toSub = registers.getReg(src);
             cycles = 4;
         }
+
         //if subtracting carry and carry is set
-        if (addCarry && isSet(registers.getReg(F), CARRY_F)) {
-            toSub += 1;
-        }
+        int carryBit = (addCarry && isSet(registers.getReg(F), CARRY_F)) ? 1 : 0;
 
         //sub
-        registers.setReg(A, regA - toSub);
+        registers.setReg(A, regA - toSub - carryBit);
 
         //flags
         registers.resetAll();
@@ -1387,11 +1384,11 @@ public class CPU {
             registers.setZ();
         }
         registers.setN();
-        if ((regA & 0xf) - (toSub & 0xf) >= 0) {
-            registers.setH(); //no borrow from bit 4
+        if ((regA & 0xf) < (toSub & 0xf) + carryBit) {
+            registers.setH();
         }
-        if (toSub <= regA) {
-            registers.setC(); //no borrow
+        if (regA < (toSub + carryBit)) {
+            registers.setC();
         }
         return cycles;
     }
@@ -1832,12 +1829,14 @@ public class CPU {
      * Complement register A
      * 
      * (toggles all bits)
+     *
+     * Flags: Sets N, H
      */ 
     private int cplRegA() {
         int reg = registers.getReg(A);
-        reg = ~reg;
-        
-        registers.setReg(A, reg & 0xffff);
+        registers.setReg(A, reg ^ 0xff);
+        registers.setN();
+        registers.setH();
         return 4;
     }
     
@@ -1850,7 +1849,11 @@ public class CPU {
      * C - Complemented
      */ 
     private int ccf() {
-        registers.toggleC();
+        if (isSet(registers.getReg(F), CARRY_F)) {
+            registers.resetC();
+        } else {
+            registers.setC();
+        }
         registers.resetN();
         registers.resetH();
         return 4;
@@ -2351,16 +2354,16 @@ public class CPU {
             cycles = 8;   
         }
         
-        int msb = (data & 0x80) >> 7;
-        
-        data = data << 1;
-        data |= (flags & 0x10) >> 4;
-        
+        int msb = ((data & 0x80) >> 7) & 0x1;
+        int carryIn = isSet(flags, CARRY_F) ? 1 : 0;
+
+        data = (data << 1 | carryIn) & 0xff;
+
         registers.resetAll();
         if (data == 0) {
             registers.setZ();
         }
-        if (msb == 1) {
+        if (msb != 0) {
             registers.setC();
         }
         
@@ -2423,12 +2426,12 @@ public class CPU {
      * Rotate n right through carry flag
      * 
      * Flags:
-     * Z - set if result is zero
+     * Z - Reset
      * N - Reset
      * H - Reset
-     * C - Contains old bit 7 data
+     * C - Contains old bit 0 data
      */ 
-    private int rrN(GBRegisters.Reg src) {
+    private int rrN(GBRegisters.Reg src, boolean setZeroFlag) {
         int data;
         int cycles;
         int flags = registers.getReg(F);
@@ -2442,17 +2445,18 @@ public class CPU {
         }
         
         int lsb = data & 0x1;
-        
-        data >>= 1;
-        if (isSet(flags, CARRY_F)) {
-            data |= 0x80;
-        }
+        int carryIn = isSet(flags, CARRY_F) ? 1 : 0;
+
+        data = (data >> 1) | (carryIn << 7);
+        data &= 0xff;
 
         registers.resetAll();
-        if (data == 0) {
+
+        if (setZeroFlag && data == 0) {
             registers.setZ();
         }
-        if (lsb == 1) {
+
+        if (lsb != 0) {
             registers.setC();
         }
         
@@ -2469,7 +2473,7 @@ public class CPU {
      * 
      * Flags
      * Z - set if 0
-     * HN - reset
+     * H, N - reset
      * C - contains old bit 7 data
      */ 
     private int slAN(GBRegisters.Reg reg) {
@@ -2483,17 +2487,18 @@ public class CPU {
             data = registers.getReg(reg);
             cycles = 8;
         }
-        
-        data = data << 1;
-        
+
+        int msb = (data & 0x80) & 0xff;
+        data = (data << 1) & 0xff;
+
         registers.resetAll();
-        if (((data >> 8) & 0x1) == 0) {
-            registers.setC();
-        }
         if (data == 0) {
             registers.setZ();
         }
-        
+        if (msb != 0) {
+            registers.setC();
+        }
+
         if (reg == GBRegisters.Reg.HL) {
             memory.writeByte(registers.getReg(reg), data);
         } else {
