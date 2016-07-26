@@ -26,11 +26,12 @@ public class GBRegisters {
     
     /**
      * Initializes the registers to their values as specified in 
-     * the original gameboy documentation.
+     * the original gameboy documentation (their state after
+     * GB bios runs)
      * 
      */ 
     public GBRegisters() {
-        a = 0x1;
+        a = 0x11;
         f = 0xb0;
         b = 0x0;
         c = 0x13;
@@ -43,7 +44,8 @@ public class GBRegisters {
     /**
      * Set a value in a register
      * 
-     * <p>Value is masked to 8bits (16 if one of the register combinations)
+     * Value is masked to 8bits (16 if one of the register combinations)
+     * For register pairs, LSB is put into second register in pair
      * 
      * @param register (required) register to set
      * @param data (required) data to place in register
@@ -176,15 +178,7 @@ public class GBRegisters {
         f = 0x0;
     }
     
-    /**
-     * Toggle carry flag
-     */ 
-    public void toggleC() {
-        f ^= 1 << 0x10;
-    }
-    
-    
-    
+
     /**
      * @return value in register A
      */ 
@@ -278,7 +272,7 @@ public class GBRegisters {
      * @param num (required) number to set regF to (masked to 8 bits)
      */ 
     private void setF(int num) {
-        f = num & 0xff;
+        f = num & 0xf0;
     }
     
     /**
@@ -328,7 +322,7 @@ public class GBRegisters {
      */ 
     private void setAF(int num) {
         a = (num & 0xff00) >> 8;
-        f = num & 0xff;
+        f = num & 0xf0;
     }
         
     /**
