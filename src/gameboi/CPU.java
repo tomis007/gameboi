@@ -1696,44 +1696,42 @@ public class CPU {
      * H - reset
      * C - set or reset according to operation
      *
-     * TODO DOESNT WORK
-     * referenced GAMBATTE/mooneye source code for this one
-     */ 
+     * referenced heavily gamelad emulator
+     * https://github.com/Dooskington/GameLad
+     */
     private int decAdjust() {
-        System.out.println("decimal adjusting");
         int flags = registers.getReg(F);
         int regA = registers.getReg(A);
-        boolean setCarry = false;
 
-        int correction = 0;
 
         if (!isSet(flags, SUBTRACT_F)) {
-            if (regA > 0x99) {
-                correction |= 0x60;
-                setCarry = true;
-            }
             if (isSet(flags, HALFCARRY_F) || (regA & 0x0f) > 0x09) {
-                correction |= 0x06;
+                regA += 0x06;
             }
-            regA += correction;
+            if (isSet(flags, CARRY_F) || (regA > 0x9f)) {
+                regA += 0x60;
+            }
+
         } else {
+            if (isSet(flags, HALFCARRY_F)) {
+                regA = (regA - 0x06) & 0xff;
+            }
             if (isSet(flags, CARRY_F)) {
-                setCarry = true;
-                correction = isSet(flags, HALFCARRY_F) ? 0x9a : 0xa0;
-            } else if (isSet(flags, HALFCARRY_F)) {
-                correction = 0xfa;
+                regA -= 0x60;
             }
         }
 
-        regA += correction;
+        if ((regA & 0x100) == 0x100) {
+            registers.setC();
+        }
+
         regA &= 0xff;
 
         registers.resetH();
         if (regA == 0) {
             registers.setZ();
-        }
-        if (setCarry) {
-            registers.setC();
+        } else {
+            registers.resetZ();
         }
 
         registers.setReg(A, regA);
@@ -2703,7 +2701,6 @@ public class CPU {
      * waits until a button is pressed
      * TODO
      *
-     * @return
      */
     private int stop() {
         pc++;
