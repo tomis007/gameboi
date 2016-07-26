@@ -7,7 +7,6 @@ package gameboi;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Scanner;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Z80 Gameboy CPU
@@ -234,7 +233,7 @@ public class CPU {
         switch (opcode) {
             case 0x0:  return 4; //NOP
 
-            /*****8 BIT LOADS*****/
+            //--------8 BIT LOADS---------
             // LD nn,n
             case 0x06: return ld_NN_N(B);
             case 0x0e: return ld_NN_N(C);
@@ -327,12 +326,12 @@ public class CPU {
             // LDI (HL), A
             case 0x2a: return eightBitLDIA();
             // LDI (HL), A
-            case 0x22: return LDI_HL_A();    //return eightBitLDIHLA();
+            case 0x22: return LDI_HL_A();
             // LDH (n), A, LDH A,(n)
             case 0xe0: return eightBitLdhA(true);
             case 0xf0: return eightBitLdhA(false);
             
-            /*****16 BIT LOADS*****/
+            //--------16 BIT LOADS------/
             //LD n, nn
             case 0x01: return ld_N_NN(BC);
             case 0x11: return ld_N_NN(DE);
@@ -355,7 +354,7 @@ public class CPU {
             case 0xe1: return popNN(HL);
             
             
-            /******8-BIT ALU*****/
+            //---------8-BIT ALU----------/
             //ADD A,n
             case 0x87: return addAN(A, false, false);
             case 0x80: return addAN(B, false, false);
@@ -862,86 +861,6 @@ public class CPU {
         return 0;
     }
 
-
-
-    private void testDEC() {
-        int i = registers.getReg(A);
-
-        for (int j = 0; j < 10000; ++j) {
-            i = (i - 1) & 0xff;
-            decN(A);
-            if (i != registers.getReg(A)) {
-                System.out.println("FAILED");
-            }
-        }
-
-        registers.setReg(B, 0x10);
-        decN(B);
-        if (isSet(registers.getReg(F), 5)) {
-            System.out.println("PASSED");
-        } else {
-            System.out.println(Integer.toHexString(registers.getReg(F)));
-            System.out.println(registers.getReg(B));
-            System.exit(1);
-        }
-
-
-
-        //System.out.println("PASSED");
-    }
-
-
-
-    /**
-     *
-     * tests the various register loading functions
-     *
-     */
-    private void testLoadFunctions() {
-        pc = 0xc000;
-
-
-        for (int i = 0; i < 100; ++i) {
-            pc = 0xc000;
-            int data = ThreadLocalRandom.current().nextInt() & 0xff;
-            memory.writeByte(pc, data);
-            ld_NN_N(A);
-            if (registers.getReg(A) != data) {
-                System.exit(1);
-            }
-        }
-        for (int i = 0; i < 100; ++i) {
-            pc = 0xc000;
-            int data = ThreadLocalRandom.current().nextInt() & 0xff;
-            memory.writeByte(pc, data & 0xff);
-            ld_N_NN(H);
-            if (registers.getReg(H) != data) {
-                System.out.println(data + "   " + registers.getReg(H));
-
-                System.out.println("failed");
-                System.exit(1);
-            }
-        }
-        for (int i = 0; i < 100; ++i) {
-            pc = 0xc000;
-            int data = ThreadLocalRandom.current().nextInt() & 0xff;
-            memory.writeByte(pc, data & 0xff);
-            ld_N_NN(E);
-            if (registers.getReg(E) != data) {
-                System.out.println(data + "   " + registers.getReg(E));
-
-                System.out.println("failed");
-                System.exit(1);
-            }
-        }
-        System.out.println("test passed");
-    }
-
-
-
-
-
-
     /**
      * LD nn,n. Put value nn into n.
      * 
@@ -1131,19 +1050,6 @@ public class CPU {
         return 8;
     }
     
-    
-    /**
-     * Put A into memory at address HL. Increment HL
-     * 
-     */ 
-    private int eightBitLDIHLA() {
-        int address = registers.getReg(GBRegisters.Reg.HL);
-        int data = registers.getReg(GBRegisters.Reg.A);
-        
-        memory.writeByte(address, data);
-        registers.setReg(GBRegisters.Reg.HL, address + 1);
-        return 8;
-    }
 
     private int LDI_HL_A() {
         int address = registers.getReg(HL);
@@ -1153,8 +1059,6 @@ public class CPU {
         registers.setReg(HL, address + 1);
         return 8;
     }
-
-
 
 
 
@@ -2100,20 +2004,7 @@ public class CPU {
     }
 
 
-    /**
-     * Pop a 16bit word off the stack
-     * 
-     * LSB is first
-     */ 
-    private int popWordFromStack() {
-        int word = memory.readByte(sp);
-        sp++;
-        word = word | (memory.readByte(sp) << 8);
-        sp++;
-        
-        return word;
-    }
-    
+
     /**
      * RST n
      * 
