@@ -152,7 +152,7 @@ public class CPU {
 //        System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
 //        dumpRegisters();
 
-        executed_opcodes[opcode]++;
+//        executed_opcodes[opcode]++;
 
 
         int cycles = runInstruction(opcode);
@@ -1801,36 +1801,31 @@ public class CPU {
      * 
      */ 
     private int jumpC(int opcode) {
-        int flags = registers.getReg(GBRegisters.Reg.F);
-        int address = memory.readByte(pc);
-        pc++;
-        address = address | (memory.readByte(pc) << 8);
-        pc++;
-        
+        int flags = registers.getReg(F);
+
         switch (opcode) {
             case 0xca:
-                if ((flags & 0x80) == 0x80) {
-                    pc = address;
-                }  
+                if (isSet(flags, ZERO_F)) {
+                    return 4 + jump();
+                }
                 break;
             case 0xc2:
-                if ((flags & 0x80) == 0x0) {
-                    pc = address;
-                }  
+                if (!isSet(flags, ZERO_F)) {
+                    return 4 + jump();
+                }
                 break;
             case 0xda:
-                if ((flags & 0x10) == 0x10) {
-                    pc = address;
-                }  
-                break;
+                if (isSet(flags, CARRY_F)) {
+                    return 4 + jump();
+                }
             case 0xd2:
-                if ((flags & 0x10) == 0x0) {
-                    pc = address;
-                }  
-                break;
+                if (!isSet(flags, CARRY_F)) {
+                    return 4 + jump();
+                }
             default:
                 break;
         }
+        pc += 2;
         return 12;
     }
     
@@ -1847,13 +1842,14 @@ public class CPU {
     /**
      * JR n
      * 
-     * add n to current address and jump to it
+     * add one byte immediate
+     * n to current address and jump to it
      */ 
     private int jumpN() {
         byte offset = (byte)memory.readByte(pc);
         pc++;
         pc += offset;
-        return 8;
+        return 12;
     }
 
     
@@ -1867,45 +1863,32 @@ public class CPU {
      */ 
     private int jumpCN(int opcode) {
         int flags = registers.getReg(GBRegisters.Reg.F);
-        byte offset = (byte)memory.readByte(pc);
-        pc++;
-        
+
         switch (opcode) {
             case 0x28:
                 if (isSet(flags, ZERO_F)) {
-                    pc += offset;
+                    return 4 + jumpN();
                 }
-/*                if ((flags & 0x80) == 0x80) {
-                    pc += offset;
-                }*/
                 break;
             case 0x20:
                 if (!isSet(flags, ZERO_F)) {
-                    pc += offset;
+                    return 4 + jumpN();
                 }
-/*                if ((flags & 0x80) == 0x0) {
-                    pc += offset;
-                }*/
                 break;
             case 0x38:
                 if (isSet(flags, CARRY_F)) {
-                    pc += offset;
+                    return 4 + jumpN();
                 }
-/*                if ((flags & 0x10) == 0x10) {
-                    pc += offset;
-                }*/
                 break;
             case 0x30:
                 if (!isSet(flags, CARRY_F)) {
-                    pc += offset;
+                    return 4 + jumpN();
                 }
-/*                if ((flags & 0x10) == 0x0) {
-                    pc += offset;
-                }*/
                 break;
             default:
                 break;
         }
+        pc++;
         return 8;
     }
     
@@ -1939,27 +1922,28 @@ public class CPU {
         switch(opcode) {
             case 0xc4:
                 if (!isSet(flags, ZERO_F)) {
-                    return call();
+                    return 12 + call();
                 }   
                 break;
             case 0xcc:
                 if (isSet(flags, ZERO_F)) {
-                    return call();
+                    return 12 + call();
                 }   
                 break;
             case 0xd4:
                 if (!isSet(flags, CARRY_F)) {
-                    return call();
+                    return 12 + call();
                 }   
                 break;
-            case 0xd0:
+            case 0xdc:
                 if (isSet(flags, CARRY_F)) {
-                    return call();
+                    return 12 + call();
                 }   
                 break;
             default:
                 break;
         }
+        pc += 2;
         return 12;
     }
     
@@ -1972,7 +1956,7 @@ public class CPU {
     private int ret() {
         pc = readWordFromMem(sp);
         sp += 2;
-        return 8;
+        return 16;
     }
     
     
@@ -2028,22 +2012,22 @@ public class CPU {
         switch(opcode) {
             case 0xc0:
                 if (!isSet(flags, ZERO_F)) {
-                    return ret();
+                    return 4 + ret();
                 } 
                 break;
             case 0xc8:
                 if (isSet(flags, ZERO_F)) {
-                    return ret();
+                    return 4 + ret();
                 }
                 break;
             case 0xd0:
                 if (!isSet(flags, CARRY_F)) {
-                    return ret();
+                    return 4 + ret();
                 }   
                 break;
             case 0xd8:
                 if (isSet(flags, CARRY_F)) {
-                    return ret();
+                    return 4 + ret();
                 }   
                 break;
             default:
@@ -2711,8 +2695,9 @@ public class CPU {
      * reads a 16 bit word from
      * memory in little endian order
      * (least significant byte first)
-     * located at pc
+     * located at address
      *
+     * @param address to read from
      * @return 16bit word from memory
      */
     private int readWordFromMem(int address) {
