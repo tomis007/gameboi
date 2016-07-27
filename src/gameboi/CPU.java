@@ -212,7 +212,7 @@ public class CPU {
      * Runs the instruction associated with the opcode, and returns the 
      * clock cycles taken.
      * 
-     * TODO HALT,STOP
+     * TODO HALT BUG,STOP
      * @param opcode (required) opcode to execute
      * @return number of cycles taken to execute
      */ 
@@ -1799,6 +1799,7 @@ public class CPU {
                 if (isSet(flags, CARRY_F)) {
                     return 4 + jump();
                 }
+                break;
             case 0xd2:
                 if (!isSet(flags, CARRY_F)) {
                     return 4 + jump();
