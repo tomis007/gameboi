@@ -3,9 +3,6 @@
  */
 package gameboi;
 
-// for testing
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Scanner;
 
 /**
@@ -17,47 +14,11 @@ import java.util.Scanner;
  * @author tomis007
  */
 public class CPU {
-    // registers
+    // registers, stack pointer, program counter
     private final GBRegisters registers;
-    
-    // stack pointer, program counter
     private int sp;
     private int pc;
-
-    //for debugging    
-    private GPU gpu;
-    private boolean debug;
-    private int[] executed_opcodes;
-
-    
-    //associated memory to use with CPU
-    private final GBMem memory;
-    
-    
-    private final int clockSpeed;
-    private int timerCounter;
-    private int divideCounter;
-
-    private boolean executionHalted;
-    private int[] extended_opcodes;
-
-    /**
-     * Interrupt state of cpu
-     * Represents the Interrupt Master Enable Flag
-     */
-    private enum InterruptCpuState  {
-      DISABLED, DELAY_ON, DELAY_OFF, ENABLED
-    }
     //constants
-    private static final InterruptCpuState DISABLED = InterruptCpuState.DISABLED;
-    private static final InterruptCpuState DELAY_ON = InterruptCpuState.DELAY_ON;
-    private static final InterruptCpuState DELAY_OFF = InterruptCpuState.DELAY_OFF;
-    private static final InterruptCpuState ENABLED = InterruptCpuState.ENABLED;
-    
-    
-    private InterruptCpuState interruptState;
-
-    //constants 
     private static final GBRegisters.Reg A = GBRegisters.Reg.A;
     private static final GBRegisters.Reg B = GBRegisters.Reg.B;
     private static final GBRegisters.Reg C = GBRegisters.Reg.C;
@@ -70,13 +31,40 @@ public class CPU {
     private static final GBRegisters.Reg BC = GBRegisters.Reg.BC;
     private static final GBRegisters.Reg DE = GBRegisters.Reg.DE;
     private static final GBRegisters.Reg AF = GBRegisters.Reg.AF;
-    
+
     //flag bitnum constants
     private static final int ZERO_F = 7;
     private static final int SUBTRACT_F = 6;
     private static final int HALFCARRY_F = 5;
     private static final int CARRY_F = 4;
+
+    //for debugging
+    private GPU gpu;
+    private boolean debug;
+
     
+    //memory
+    private final GBMem memory;
+    private final int clockSpeed;
+    private int timerCounter;
+    private int divideCounter;
+    private boolean executionHalted;
+
+
+    /**
+     * Interrupt state of cpu
+     * Represents the Interrupt Master Enable Flag
+     * allows for correct transition timing
+     */
+    private enum InterruptCpuState  {
+      DISABLED, DELAY_ON, DELAY_OFF, ENABLED
+    }
+    private InterruptCpuState interruptState;
+    private static final InterruptCpuState DISABLED = InterruptCpuState.DISABLED;
+    private static final InterruptCpuState DELAY_ON = InterruptCpuState.DELAY_ON;
+    private static final InterruptCpuState DELAY_OFF = InterruptCpuState.DELAY_OFF;
+    private static final InterruptCpuState ENABLED = InterruptCpuState.ENABLED;
+
     /**
      * Constructor for gameboy z80 CPU
      * 
@@ -92,14 +80,6 @@ public class CPU {
         timerCounter = 1024;
         divideCounter = clockSpeed / 16382;
         interruptState = DISABLED;
-
-        executed_opcodes = new int[0xff];
-        extended_opcodes = new int[0xff];
-        for (int i = 0; i < executed_opcodes.length; ++i) {
-            executed_opcodes[i] = 0;
-            extended_opcodes[i] = 0;
-        }
-
         debug = false;
     }
     
@@ -111,13 +91,7 @@ public class CPU {
         this.gpu = gpu;
     }
     
-    /**
-     * returns registers (for testing)
-     */ 
-    public GBRegisters getReg() {
-        return registers;
-    }
-    
+
     /**
      * Execute the next opcode in memory, and update the CPU timers
      * 
@@ -173,35 +147,6 @@ public class CPU {
             input = sc.nextLine();
         }
         debug = false;
-    }
-
-    /**
-     *
-     * for debugging
-     *
-     *
-     * prints every executed opcode and the
-     * number of times they have been executed
-     *
-     */
-    public void printOpcodeCount() {
-        try {
-            PrintWriter writer = new PrintWriter("output_opcodes.txt");
-            for (int i = 0; i < 0xff; ++i) {
-                if (executed_opcodes[i] > 0) {
-                    writer.println("opcode: 0x" + Integer.toHexString(i) + "   count: " + executed_opcodes[i]);
-                }
-            }
-            writer.println("EXTENDED OPCODES");
-            for (int i = 0; i < 0xff; ++i) {
-                if (extended_opcodes[i] > 0) {
-                    writer.println("opcode: 0x" + Integer.toHexString(i) + "   count: " + extended_opcodes[i]);
-                }
-            }
-            writer.close();
-        } catch (IOException e) {
-            System.err.println("exception");
-        }
     }
 
 
