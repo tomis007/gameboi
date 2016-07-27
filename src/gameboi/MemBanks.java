@@ -10,29 +10,17 @@ package gameboi;
  * 
  * Simulates the external ROM bank attached in the original gameboy cartridges
  * 
- * NOTE: ONLY MBC1 is "implemented"
  * TODO: UPDATE RAM BANKING AND OTHER MEMBANK TYPES
  * 
  * @author tomis007
  */
 public class MemBanks {
-    private final int[] cartridge;
-    private int[] ramBank;
-    private int curRAMBank;
-    private int curROMBank;
-    private boolean isRomBanking;
-    private boolean ramEnabled;
-    /**
-     * Enum type for different RomBanks
-     * 
-     */
-    private enum Mode {NONE, MBC1, MBC2, MBC3};
-    private final Mode bankMode;
+    private MemoryBank memBank;
     
     /**
      * Constructor for RomMemBank
      * 
-     *<p> Constructs the gameboy rom bank as specified by the value in the 
+     * Constructs the gameboy rom bank as specified by the value in the
      *    gameboy program.
      * 
      * @param romCartridge (required) the rom cartridge to create the rom 
@@ -40,29 +28,14 @@ public class MemBanks {
      * 
      */ 
     public MemBanks(int[] romCartridge) {
-        ramBank = new int[0x8000];
-        cartridge = new int[romCartridge.length];
-        System.arraycopy(romCartridge, 0, cartridge, 0, romCartridge.length);
-        
-        switch (romCartridge[0x147]) {
-            case 0: bankMode = Mode.NONE;
-                    break;
-            case 1: bankMode = Mode.MBC1;
-                    break;
-            case 2: bankMode = Mode.MBC1;
-                    break;
-            case 3: bankMode = Mode.MBC1;
-                    break;
-            case 13:
-                    bankMode = Mode.MBC1; // NOT CORRECT!!! JUST FOR TESTING
-                    break;
-            default: bankMode = Mode.NONE;
-                    break;
+        switch(romCartridge[0x147]) {
+            case 0:
+                memBank = new MBC0(romCartridge);
+                break;
+            default:
+                System.err.println("Sorry, this MBC is not implemented yet");
+                System.exit(1);
         }
-        curROMBank = 1;
-        curRAMBank = 0;
-        isRomBanking = true; //default value
-        ramEnabled = false;
     }
     
     /**
@@ -77,26 +50,31 @@ public class MemBanks {
      *     -1 is returned
      */ 
     public int readByte(int address) {
-        if ((address >= 0x4000) && (address <= 0x7fff)) {
-            return cartridge[(address - 0x4000) + (curROMBank * 0x4000)];
-        } else if ((address >= 0xa000) && (address <= 0xbfff)) {
-            return ramBank[(address - 0xa000) + (curRAMBank * 0x2000)];
-        } else {
-            System.err.println("Invalid read address from MemBanks");
-            return -1;
-        }
+        return memBank.readByte(address);
     }
     
     /**
      * Returns whether or not ram bank writing is enabled
-     * 
+     *
+     * TODO
      * @return true if ram bank writing enabled, false if not
      */ 
     public boolean isRamEnabled() {
-        return ramEnabled;
+        return true;
     }
-    
-    
+
+
+    /**
+     *
+     *
+     *
+     * @param address
+     * @param data
+     */
+    public void writeByte(int address, int data) {
+        memBank.writeByte(address, data);
+    }
+
     /**
      * updates the Memory Banks
      * 
@@ -107,7 +85,7 @@ public class MemBanks {
      * @param data int data to write to
      */ 
     public void updateBanking(int address, int data) {
-        if (address < 0x2000) {
+/*        if (address < 0x2000) {
             if (bankMode == Mode.MBC1) {
                 int mode = data & 0xf;
                 if (mode == 0xa) {
@@ -142,20 +120,6 @@ public class MemBanks {
                     curRAMBank = 0;
                 }
             }
-        }
-    }
-    
-    
-    /**
-     * writes byte to switchable ram bank
-     * 
-     * @param address (required) address to write to
-     * @param data (required) data to write
-     */ 
-    public void writeByte(int address, int data) {
-        data = data & 0x0ff;
-        if (ramEnabled) {
-            ramBank[(address - 0xa000) + (curRAMBank * 0x2000)] = data;
-        }
+        }*/
     }
 }
