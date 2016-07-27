@@ -46,7 +46,7 @@ public class CPU {
      * Represents the Interrupt Master Enable Flag
      */
     private enum InterruptCpuState  {
-      DISABLED, DELAY_ON, DELAY_OFF, ENABLED;
+      DISABLED, DELAY_ON, DELAY_OFF, ENABLED
     }
     //constants
     private static final InterruptCpuState DISABLED = InterruptCpuState.DISABLED;
@@ -56,7 +56,6 @@ public class CPU {
     
     
     private InterruptCpuState interruptState;
-    
 
     //constants 
     private static final GBRegisters.Reg A = GBRegisters.Reg.A;
@@ -86,7 +85,7 @@ public class CPU {
     public CPU(GBMem memory) {
         //for bios
         pc = 0x100;
-        sp = 0xfffe;//0xfffe;
+        sp = 0xfffe;
         this.memory = memory;
         registers = new GBRegisters();
         clockSpeed = 4194304;
@@ -100,7 +99,6 @@ public class CPU {
             executed_opcodes[i] = 0;
             extended_opcodes[i] = 0;
         }
-
 
         debug = false;
     }
@@ -128,7 +126,13 @@ public class CPU {
     public int ExecuteOpcode() {
 
         if (executionHalted) {
-            return 4; // to keep other things running
+            if ((memory.readByte(0xff0f) & memory.readByte(0xffff)) != 0) {
+                executionHalted = false;
+            } else {
+                updateDivideRegister(4);
+                updateTimers(4);
+                return 4;
+            }
         }
 
         //handle interrupt state change
@@ -138,30 +142,13 @@ public class CPU {
             interruptState = DISABLED;
         }
 
-        if (pc == 0xc27d && !debug) {
-//            enterDebugMode();
-        }
-
-
         int opcode = memory.readByte(pc);
-        if (debug) {
-            System.out.println("0x" + Integer.toHexString(opcode));
-        }
-
         pc++;
-//        System.out.println("Opcode: 0x" + Integer.toHexString(opcode));
-//        dumpRegisters();
-
-//        executed_opcodes[opcode]++;
-
 
         int cycles = runInstruction(opcode);
-
-        if (!executionHalted) {
-            updateDivideRegister(cycles); //TODO
-            updateTimers(cycles); //TODO
-            checkInterrupts();
-        }
+        updateDivideRegister(cycles); //TODO
+        updateTimers(cycles); //TODO
+        checkInterrupts();
 
         return cycles;
     }
@@ -473,7 +460,7 @@ public class CPU {
 
             // extended
             case 0xcb: return extendedOpcode();
-            // DAA TODO
+            // DAA
             case 0x27: return decAdjust();
             //CPL
             case 0x2f: return cplRegA();
@@ -501,8 +488,8 @@ public class CPU {
             case 0x38: return jumpCN(opcode);
             
             
-            //TODO HALT,STOP
-            case 0x76: System.out.println("HALT");return halt();
+            //TODO DMB BUG HALT,STOP
+            case 0x76: return halt();
             case 0x10: return stop();
             case 0xf3: return disableInterrupts();
             case 0xfb: return enableInterrupts();
@@ -999,13 +986,7 @@ public class CPU {
      * @return 0
      */
     private int halt() {
-        if (interruptState != DISABLED) {
-            executionHalted = true;
-            System.out.println("halting");
-        } else {
-            //interrupts not Enabled behavior skips next instruction
-            pc++;
-        }
+        executionHalted = true;
         return 4;
     }
 
@@ -2577,11 +2558,9 @@ public class CPU {
      * @param id interrupt to request
      */ 
     public void requestInterrupt(int id) {
-        if (executionHalted) System.out.println("interrupt requested");
         int flags = memory.readByte(0xff0f);
         flags = setBit(1, id, flags);
         memory.writeByte(0xff0f, flags);
-        checkInterrupts();
     }
     
     /**
@@ -2595,17 +2574,7 @@ public class CPU {
         int interruptFlag = memory.readByte(0xff0f);
         int interruptEnable = memory.readByte(0xffff);
 
-        //resumed with ANY interrupt
-        if (executionHalted && interruptFlag > 0) {
-            for (int i = 0; i < 5; ++i) {
-                if (isSet(interruptFlag, i)) {
-                    System.out.println("resuming");
-                    executionHalted = false;
-                    handleInterrupt(i);
-                    break;
-                }
-            }
-        } else if (interruptFlag > 0 && interruptEnable > 0) {
+        if (interruptFlag > 0 && interruptEnable > 0) {
             for (int i = 0; i < 5; ++i) {
                 if (isSet(interruptFlag, i) && isSet(interruptEnable, i)) {
                     handleInterrupt(i);
@@ -2631,9 +2600,6 @@ public class CPU {
     private void handleInterrupt(int id) {
         //clear IME flag
         interruptState = DISABLED;
-        if (executionHalted) {
-            System.out.println("resuming");
-        }
 
         //reset the interrupt bit
         int flags = memory.readByte(0xff0f);
@@ -2675,7 +2641,6 @@ public class CPU {
      * TODO read one more opcode
      */ 
     private int enableInterrupts() {
-        //System.out.println("enabled interrupts");
         interruptState = DELAY_ON;
         return 4;
     }
@@ -2720,8 +2685,6 @@ public class CPU {
         memory.writeByte(sp, (word & 0xff00) >> 8);
         sp--;
         memory.writeByte(sp, word & 0xff);
-
-
     }
 
 
