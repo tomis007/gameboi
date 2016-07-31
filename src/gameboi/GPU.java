@@ -62,6 +62,8 @@ public class GPU {
     private static final int HORIZ_BLANK = 0;
     private static final int VERT_BLANK = 1;
 
+    private static final int WHITE = 0xffffffff;
+
 
     //lcdc flag constants
     private static final int LCDC_DISPLAY_ENABLE = 7;
@@ -459,21 +461,16 @@ public class GPU {
     private void drawSpriteLine(int xPos, int yPos, int pixDataA, int pixDataB,
                                 boolean horizFlip, boolean hasPriority, int paletteAddress) {
         for (int pix = 0; pix < 8; ++pix) {
-            if (horizFlip) {
-                pix = 7 - pix;
-            }
+            int colorIndex = horizFlip ? 7 - pix : pix;
 
-            int colorNum = getPixelColorNum(pixDataA, pixDataB, pix);
-            if (xPos + pix < 160 && xPos + pix >= 0) {
-                if (hasPriority) {
-                    screenDisplay.setRGB(xPos + pix, yPos,
-                            getColor(colorNum, paletteAddress));
+            int colorNum = getPixelColorNum(pixDataA, pixDataB, colorIndex);
+            int color = getColor(colorNum, paletteAddress);
+            if (xPos + pix < 160 && xPos + pix >= 0 && colorNum != 0) {
+                if (hasPriority){
+                    screenDisplay.setRGB(xPos + pix, yPos, color);
                 } else {
-//                    System.out.println(xPos + pix);
-//                    System.out.println(yPos);
-                    if (getColor(0, paletteAddress) == screenDisplay.getRGB(xPos + pix, yPos)) {
-                        screenDisplay.setRGB(xPos + pix, yPos,
-                                getColor(colorNum, paletteAddress));
+                    if (getColor(0, 0xff47) == screenDisplay.getRGB(xPos + pix, yPos)) {
+                        screenDisplay.setRGB(xPos + pix, yPos, color);
                     }
                 }
             }
