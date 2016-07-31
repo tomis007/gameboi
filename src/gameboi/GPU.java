@@ -180,7 +180,7 @@ public class GPU {
         }
 
         if (isSet(lcdc, SPRITE_ENABLE)) {
-//            drawSprites();
+            drawSprites();
         }
         
     }
@@ -378,72 +378,107 @@ public class GPU {
                 int tileAddress = signedIndex ? (tileIndex * 16) + tileDataAddress
                         : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
 
-
                 drawTile(tileAddress, (xTile * 8) + wX - 7, (yTile * 8) + wY, 0, 7);
             }
         }
     }
 
 
-
     /**
      *
-     * draws the sprites onto the background
+     * draws the sprites onto the LCD screen
      *
      *
-     * TODO!!!!!! priorities not correct etc...
-     * TODO also doesnt work...
+     *     todo SCANLINE LIMIT of 10 SPRITES
      */
     private void drawSprites() {
         int lcdc = memory.readByte(0xff40);
-        int height = isSet(lcdc, 2) ? 16 : 8; //8x16 mode or 8x8 mode
-        int currentScanLine = memory.getScanLine();
+        int height = isSet(lcdc, 2) ? 16 : 8;
 
-        //scan sprites and draw ones that
-        //are on current scanline todo correct priorities, limit
+        for (int i = 0xfe9f; i > 0xfe00; i -= 4) {
+            int flags = memory.readByte(i);
+            int tileNum = memory.readByte(i - 1);
+            int xPos = memory.readByte(i - 2) - 8;
+            int yPos = memory.readByte(i - 3) - 16;
 
-        for (int i = 0; i < 40; ++i) {
-            int yPos = memory.readByte((i * 4) + 0xfe00) - 16;
-            int xPos = memory.readByte((i * 4) + 0xfe00 + 1) - 8;
-            int patternNumber = memory.readByte((i * 4) + 0xfe00 + 2);
-            int flags = memory.readByte((i * 4) + 0xfe00 + 3);
+            if (height == 16) {
+                tileNum &= 0xfe;
+            }
 
-            //need to draw sprite
-            if ((currentScanLine >= yPos) && (currentScanLine < (yPos + height))) {
-                boolean flipHoriz = isSet(flags, 5);
-
-                //todo flip Vertical
-                boolean flipVert = isSet(flags, 6);
-
-                //todo priority with background
+            if (xPos < 160 && xPos >= 0 && yPos < 144 && yPos >= 0) {
+                int address = (tileNum * 16) + 0x8000;
+                drawSprite(xPos, yPos, address, flags, height);
+            }
+        }
+    }
 
 
-                //read correct pixel data from memory for appropriate line of sprite
-                int byteAddress = 0x8000 + (patternNumber * 16) + ((currentScanLine - yPos) * 2);
+    /**
+     * draws the sprite at address
+     * to the screen at xPos, yPos (top left corner
+     * @param xPos of LCD screen to display top left
+     * @param yPos of LCD screen to display top left
+     * @param address of first byte of sprite data
+     * @param height of the sprite (8 or 16)
+     * @param flags associated with the sprite
+     */
+    private void drawSprite(int xPos, int yPos, int address, int flags, int height) {
+        boolean vertFlip = isSet(flags, 6);
+        boolean horizFlip = isSet(flags, 5);
+        boolean hasPriority = !isSet(flags, 7);
+        int paletteAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
 
-                int pixDataA = memory.readByte(byteAddress);
-                int pixDataB = memory.readByte(byteAddress + 1);
+            for (int i = 0; i < height; ++i) {
+                int pixDataA;
+                int pixDataB;
 
-                for (int pixel = 0; pixel < 8; pixel++) {
-                    int colorNum;
-                    if (flipHoriz) {
-                        colorNum = getPixelColorNum(pixDataA, pixDataB, 7 - pixel);
-                    } else {
-                        colorNum = getPixelColorNum(pixDataA, pixDataB, pixel);
-                    }
+                if (vertFlip) {
+                    pixDataA = memory.readByte(address + (2 * (15 - i)) - 1);
+                    pixDataB = memory.readByte(address + (2 * (15 - i)));
+                } else {
+                    pixDataA = memory.readByte(address + (2 * i));
+                    pixDataB = memory.readByte(address + (2 * i) + 1);
+                }
+                if (yPos + i < 144) {
+                    drawSpriteLine(xPos, yPos + i, pixDataA, pixDataB,
+                            horizFlip, hasPriority, paletteAddress);
+                }
+            }
+    }
 
-                    int paletteAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
+    /**
+     * draws one line of a sprite
+     *
+     *
+     * @param xPos left most corner of line to start (lcd screen) ( < 160)
+     * @param yPos vertical position of line (lcd screen) ( < 144)
+     * @param pixDataA of line
+     * @param pixDataB of line
+     * @param horizFlip flip horizontal (boolean)
+     */
+    private void drawSpriteLine(int xPos, int yPos, int pixDataA, int pixDataB,
+                                boolean horizFlip, boolean hasPriority, int paletteAddress) {
+        for (int pix = 0; pix < 8; ++pix) {
+            if (horizFlip) {
+                pix = 7 - pix;
+            }
 
-                    int pixColor = getColor(colorNum, paletteAddress);
-
-                    if (pixColor != 0xffffffff) {
-                        screenDisplay.setRGB(xPos + pixel, currentScanLine, pixColor);
+            int colorNum = getPixelColorNum(pixDataA, pixDataB, pix);
+            if (xPos + pix < 160 && xPos + pix >= 0) {
+                if (hasPriority) {
+                    screenDisplay.setRGB(xPos + pix, yPos,
+                            getColor(colorNum, paletteAddress));
+                } else {
+//                    System.out.println(xPos + pix);
+//                    System.out.println(yPos);
+                    if (getColor(0, paletteAddress) == screenDisplay.getRGB(xPos + pix, yPos)) {
+                        screenDisplay.setRGB(xPos + pix, yPos,
+                                getColor(colorNum, paletteAddress));
                     }
                 }
             }
         }
     }
-
 
 
     /**
