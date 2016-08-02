@@ -62,8 +62,6 @@ public class GPU {
     private static final int HORIZ_BLANK = 0;
     private static final int VERT_BLANK = 1;
 
-    private static final int WHITE = 0xffffffff;
-
 
     //lcdc flag constants
     private static final int LCDC_DISPLAY_ENABLE = 7;
@@ -101,7 +99,7 @@ public class GPU {
         screenDisplay = new BufferedImage(160, 144, BufferedImage.TYPE_INT_ARGB);
         for (int i = 0; i < screenDisplay.getWidth(); ++i) {
             for (int j = 0; j < screenDisplay.getHeight(); ++j) {
-                screenDisplay.setRGB(i, j, 0xff000000); // Black
+                screenDisplay.setRGB(i, j, 0xffffffff); // white
             }
         }
 
@@ -126,7 +124,7 @@ public class GPU {
      */ 
     public void updateGraphics(int cycles) {
         modeClock -= cycles;
-        updateLCDMode();
+        checkLCDInterrupts();
 
         //not time to update scanline yet
         if (modeClock > 0) {
@@ -137,19 +135,16 @@ public class GPU {
         modeClock = 456; // reset for next scanline cycle
         int currentScanLine = memory.getScanLine();
         if (currentScanLine == 144) {
-            cpu.requestInterrupt(0); //vertical blank interrupt
-            //time to draw the current frame
-            renderScan();
             lcdscreen.repaint();
-        } else if (currentScanLine > 152) {
-            memory.setScanLine(0);
-//            modeClock = 4560; //account for vertical blank timing
-        } else if (currentScanLine < 144) {
-//            renderScanLineTiles();
+            cpu.requestInterrupt(0); //vertical blank interrupt
         }
-
-        if (currentScanLine <= 152) {
+        if (currentScanLine < 152) {
+            if (currentScanLine < 144) {
+                renderScan(currentScanLine);
+            }
             memory.incScanLine();
+        } else {
+            memory.setScanLine(0);
         }
     }
     
@@ -169,22 +164,24 @@ public class GPU {
      * 
      * Renders current scanline for the gpu
      */
-    private void renderScan() {
+    private void renderScan(int currentScanLine) {
         // get flags
         int lcdc = memory.readByte(0xff40);
         
         if (isSet(lcdc, BACKGROUND_ENABLE)) {
-            drawBackground();
-        }
+            drawBackground(currentScanLine);
+        }// else {
+//            drawWhiteBackground();
+//        }
 
-        if (isSet(lcdc, WINDOW_DISPLAY_ENABLE)) {
+        if (isSet(lcdc, WINDOW_DISPLAY_ENABLE) && currentScanLine == 143) {
             drawWindow();
         }
 
         if (isSet(lcdc, SPRITE_ENABLE)) {
-            drawSprites();
+            drawSprites(currentScanLine);
         }
-        
+
     }
     
     
@@ -196,7 +193,7 @@ public class GPU {
      *
      * requests interrupts as state changes
      */ 
-    private void updateLCDMode() {
+    private void checkLCDInterrupts() {
         if (!lcdEnabled()) {
             return;
         }
@@ -257,36 +254,17 @@ public class GPU {
             default: return flag;
         }    
     }
-    
-    /**
-     * Resets the state in 0xff41 to 1
-     * Sets the modeClock back to 456, and the scanline itself
-     * int memory to 0
-     */ 
-    private void resetToModeOne() {
-        int flags = memory.readByte(0xff41);
-        modeClock = 456;
-        memory.setScanLine(0);
-        //set state to 01
-        flags &= 252;
-        flags |= 0x1;
-        memory.writeByte(0xff41, flags);
-    }
 
 
     /**
-     * Draws the background on the 'LCD'
-     * screen
-     *
-     * Gameboy screen is 160x144
-     * or 20 x 18 tiles (of 8x8). This draws
-     * each of the tiles to create the background
+     * draws the background on screen for
+     * the scanline
      *
      *
-     * todo yPosition offset (scY % 8 != 0)
      *
+     * @param scanLine to draw background onto
      */
-    private void drawBackground() {
+    private void drawBackground(int scanLine) {
         int lcdc = memory.readByte(0xff40);
         int tileMapAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
         int scY = memory.readByte(0xff42);
@@ -294,30 +272,40 @@ public class GPU {
         int tileDataAddress = isSet(lcdc, 4) ? 0x8000 : 0x9000;
         boolean signedIndex = !isSet(lcdc, 4);
 
-        //draw all the tiles
-        for (int yTile = 0; yTile < 18; yTile++) {
-            if (scY % 8 != 0) {
-                System.err.println("INVALID SCROLL Y WRAPPING");
-            }
-            int yOffset = (((scY + (yTile * 8)) / 8) % 32) * 32;
+        //draw tiles on current scanLine
+        int yOffset = (((scY + scanLine) / 8) % 32) * 32;
+        int tileLine = (scY + scanLine) % 8;
 
-            for (int xTile = 0; xTile < 20; ++xTile) {
-                int xOffset = (xTile + (scX / 8)) % 32;
-                byte tileIndex = (byte)memory.readByte(tileMapAddress + yOffset + xOffset);
+        for (int xTile = 0; xTile <= 20; ++xTile) {
+            int xOffset = (xTile + (scX / 8)) % 32;
+            byte tileIndex = (byte)memory.readByte(tileMapAddress + yOffset + xOffset);
+            int tileAddress = signedIndex ? (tileIndex * 16) + tileDataAddress
+                                          : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
 
-                int tileAddress = signedIndex ? (tileIndex * 16) + tileDataAddress
-                                              : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
-
-                if (xTile == 0) {
-                    drawTile(tileAddress, xTile * 8, yTile * 8, scX % 8, 7);
-                } else if (xTile == 19) {
-                    drawTile(tileAddress, (xTile * 8) - (scX % 8), yTile * 8, 0, 7 - (scX % 8));
-                } else {
-                    drawTile(tileAddress, (xTile * 8) - (scX % 8), yTile * 8, 0, 7);
-                }
+            int xShift = scX % 8;
+            if (xTile == 0 && xShift != 0) {
+                drawTile(tileAddress, tileLine, 0, scanLine, xShift, 7);
+            } else if (xTile == 20 && xShift != 0) {
+                drawTile(tileAddress, tileLine, 160 - xShift, scanLine, 0, xShift);
+            } else if (xTile != 20) {
+                drawTile(tileAddress, tileLine, (xTile * 8) - xShift, scanLine, 0, 7);
             }
         }
     }
+
+
+    /**
+     *
+     * draws a white background onto the lcd screen
+     * 144 x 160
+     */
+    private void drawWhiteBackground() {
+            for (int row = 0; row < 144; row++) {
+                for (int col = 0; col < 160; col++) {
+                    screenDisplay.setRGB(col, row, 0xffffffff);
+                }
+            }
+        }
 
 
 
@@ -334,8 +322,29 @@ public class GPU {
      *             on the 160-144 LCD screen
      * @param yPos of the upper left hand corner of the tile
      *             on the 160-144 LCD screen
+     * @param pixEnd the last pixel index in each line to draw (ie pixel 6 will draw
+     *               the pixels from 0 - 6 and not 7)
+     * @param pixStart the first pixel index in each line to start drawing from (ie pixel
+     *                 six will start drawing at pixel 6) this is placed at xPos
+     * @param line in the tile to draw (0 - 7)
      */
-    private void drawTile(int tileAddress, int xPos, int yPos, int pixStart, int pixEnd) {
+    private void drawTile(int tileAddress, int line, int xPos, int yPos, int pixStart, int pixEnd) {
+        int paletteAddress = 0xff47;
+        int pixByteA = memory.readByte(tileAddress + (2 * line));
+        int pixByteB = memory.readByte(tileAddress + (2 * line) + 1);
+
+        //draw each pixel in the line
+        for (int pixel = pixStart; pixel <= pixEnd; ++pixel) {
+            int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
+            int xCord = (xPos + pixel - pixStart) % 160;
+
+            screenDisplay.setRGB(xCord, yPos, getColor(colorNum, paletteAddress));
+        }
+    }
+
+
+
+    private void drawWindowTile(int tileAddress, int xPos, int yPos) {
         int paletteAddress = 0xff47;
 
         //draw each line of the tile
@@ -344,20 +353,23 @@ public class GPU {
             int pixByteB = memory.readByte(tileAddress + (2 * line) + 1);
 
             //draw each pixel in the line
-            for (int pixel = pixStart; pixel <= pixEnd; ++pixel) {
+            for (int pixel = 0; pixel <= 7; ++pixel) {
                 int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
-                int xCord = (xPos + pixel) % 160;
-                int yCord = (yPos + line) % 144;
-                screenDisplay.setRGB(xCord, yCord, getColor(colorNum, paletteAddress));
+                int xCord = (xPos + pixel);
+                int yCord = (yPos + line);
+                if (xCord < 160 && yCord < 144 && xCord >= 0 && yCord >= 0) {
+                    screenDisplay.setRGB(xCord, yCord, getColor(colorNum, paletteAddress));
+                }
             }
         }
     }
 
 
+
+
     /**
      *
      * draws the window onto the LCD display screen
-     * TODO Wrapping (wX % 8 != 0)
      */
     private void drawWindow() {
         int lcdc = memory.readByte(0xff40);
@@ -378,13 +390,12 @@ public class GPU {
             for (int xTile = 0; xTile < 20 && ((xTile * 8) + wX) < 166; xTile++) {
                 byte tileIndex = (byte)memory.readByte(tileMapAddress + (yTile * 32) + xTile);
                 int tileAddress = signedIndex ? (tileIndex * 16) + tileDataAddress
-                        : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
+                                              : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
 
-                drawTile(tileAddress, (xTile * 8) + wX - 7, (yTile * 8) + wY, 0, 7);
+                drawWindowTile(tileAddress, (xTile * 8) + wX - 7, (yTile * 8) + wY);
             }
         }
     }
-
 
     /**
      *
@@ -393,26 +404,65 @@ public class GPU {
      *
      *     todo SCANLINE LIMIT of 10 SPRITES
      */
-    private void drawSprites() {
+    private void drawSprites(int scanLine) {
         int lcdc = memory.readByte(0xff40);
         int height = isSet(lcdc, 2) ? 16 : 8;
 
-        for (int i = 0xfe9f; i > 0xfe00; i -= 4) {
-            int flags = memory.readByte(i);
-            int tileNum = memory.readByte(i - 1);
-            int xPos = memory.readByte(i - 2) - 8;
-            int yPos = memory.readByte(i - 3) - 16;
+
+        for (int i = 0; i < 40; ++i){
+            int offset = (39 - i) * 4;
+            int yPos = memory.readByte(0xfe00 + offset);// - 16;
+            int xPos = memory.readByte(0xfe00 + offset + 1);// - 8;
+            int tileNum = memory.readByte(0xfe00 + offset + 2);
+            int flags = memory.readByte(0xfe00 + offset + 3);
 
             if (height == 16) {
                 tileNum &= 0xfe;
             }
-
-            if (xPos < 160 && xPos >= 0 && yPos < 144 && yPos >= 0) {
+            if (xPos < 168 && xPos > 0 && yPos < 160 && yPos > 0) {
                 int address = (tileNum * 16) + 0x8000;
-                drawSprite(xPos, yPos, address, flags, height);
+                drawSprite(xPos - 8, yPos - 16, address, flags, height, scanLine);
             }
         }
     }
+
+
+    /**
+     * draws the sprite at address
+     * to the screen at xPos, yPos (top left corner
+     * @param xPos of LCD screen to display top left
+     * @param yPos of LCD screen to display top left
+     * @param address of first byte of sprite data
+     * @param height of the sprite (8 or 16)
+     * @param flags associated with the sprite
+     *
+     * TODO scanline LIMIT
+     */
+    private void drawSprite(int xPos, int yPos, int address, int flags, int height, int scanLine) {
+        boolean vertFlip = isSet(flags, 6);
+        boolean horizFlip = isSet(flags, 5);
+        boolean hasPriority = !isSet(flags, 7);
+        int paletteAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
+
+        for (int i = 0; i < height; ++i) {
+            int pixDataA;
+            int pixDataB;
+
+            if (vertFlip) {
+                pixDataA = memory.readByte(address + (2 * ((2 * height) - i - 1)) - 1);
+                pixDataB = memory.readByte(address + (2 * ((2 * height) - i - 1)));
+            } else {
+                pixDataA = memory.readByte(address + (2 * i));
+                pixDataB = memory.readByte(address + (2 * i) + 1);
+            }
+            if (yPos + i < 144 && yPos + i == scanLine) {
+                drawSpriteLine(xPos, yPos + i, pixDataA, pixDataB,
+                        horizFlip, hasPriority, paletteAddress);
+            }
+        }
+    }
+
+
 
 
     /**
@@ -435,8 +485,8 @@ public class GPU {
                 int pixDataB;
 
                 if (vertFlip) {
-                    pixDataA = memory.readByte(address + (2 * (15 - i)) - 1);
-                    pixDataB = memory.readByte(address + (2 * (15 - i)));
+                    pixDataA = memory.readByte(address + ((2 * height) - i - 1) - 1);
+                    pixDataB = memory.readByte(address + ((2 * height) - i - 1));
                 } else {
                     pixDataA = memory.readByte(address + (2 * i));
                     pixDataB = memory.readByte(address + (2 * i) + 1);
@@ -465,7 +515,7 @@ public class GPU {
 
             int colorNum = getPixelColorNum(pixDataA, pixDataB, colorIndex);
             int color = getColor(colorNum, paletteAddress);
-            if (xPos + pix < 160 && xPos + pix >= 0 && colorNum != 0) {
+            if (xPos + pix < 160 && xPos + pix >= 0 && colorNum != 0 && yPos >= 0 && yPos < 144) {
                 if (hasPriority){
                     screenDisplay.setRGB(xPos + pix, yPos, color);
                 } else {
