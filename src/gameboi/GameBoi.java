@@ -34,13 +34,16 @@ public class GameBoi {
                 gpu.updateGraphics(cycles);
                 count += cycles;
             }
-            long endTime = System.nanoTime();
-            try {
-                Thread.sleep((endTime - startTime) / 1000000, (int) ((endTime - startTime) % 1000000));
-            } catch (InterruptedException e) {
-                //oops
+            long sleepTime = 16700000 - (System.nanoTime() - startTime);
+            if (sleepTime > 0) {
+                try {
+                    Thread.sleep(sleepTime / 1000000, (int)sleepTime % 1000000);
+                } catch (InterruptedException e) {
+                    System.err.println("woops...");
+                }
             }
         }
     }
 }
+
 
