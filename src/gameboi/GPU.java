@@ -32,9 +32,11 @@ import javax.swing.JFrame;
  * 
  * Updates the graphics according to CPU and memory
  * 
- * Referred heavily to:
+ * referenced:
  * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
- * 
+ * http://gbdev.gg8.se/files/docs/mirrors/pandocs.html
+ * http://www.codeslinger.co.uk/pages/projects/gameboy/lcd.html
+ *
  * @author tomis007
  */
 public class GPU {
@@ -47,7 +49,6 @@ public class GPU {
      * 456 clock cycles to draw each scanline
      */
     private int modeClock;
-
 
 
     /**
@@ -63,18 +64,10 @@ public class GPU {
     private static final int VERT_BLANK = 1;
 
 
-    //lcdc flag constants
-    private static final int LCDC_DISPLAY_ENABLE = 7;
-    private static final int WINDOW_DISPLAY_ENABLE = 5;
-    private static final int SPRITE_ENABLE = 1;
-    private static final int BACKGROUND_ENABLE = 0;
 
-    /**
-     * access to the cpu for requesting interrupts 
-     */ 
-    private final CPU cpu;
-    
-    /**
+    /*
+     * lcdc register information
+     *
      * Bit 7: LCD Display enable (0=Off, 1=On)
      * Bit 6: Window Tile Map Display Select (0=9800-9Bff, 1 = 9c00-9fff)
      * Bit 5: Window Display Enable (0=Off, 1=On)
@@ -83,10 +76,38 @@ public class GPU {
      * Bit 2: OBJ (Sprite) Size (0=8x8, 1=8x16)
      * Bit 1: OBJ (Sprite) Display Enable (0=Off, 1=ON)
      * Bit 0: BG Display (FOR GBC) (0=Off, 1=ON)
+     */
+
+    private static final int LCDC_CONTROL = 0xff40;
+    private static final int LCDC_DISPLAY_ENABLE = 7;
+    private static final int WINDOW_DISPLAY_ENABLE = 5;
+    private static final int SPRITE_ENABLE = 1;
+    private static final int BACKGROUND_ENABLE = 0;
+
+    private static final int LCDC_STAT = 0xff41;
+    private static final int SC_Y = 0xff42;
+    private static final int SC_X = 0xff43;
+    private static final int W_Y = 0xff4a;
+    private static final int W_X = 0xff4b;
+
+
+    //sprite flags
+    private static final int PALETTE_NUM = 4;
+    private static final int HORIZ_FLIP = 5;
+    private static final int VERT_FLIP = 6;
+    private static final int PRIORITY = 7;
+    private static final int SPRITE_HEIGHT = 2;
+
+
+    //background disabled
+    private boolean isWhite;
+
+    /**
+     * access to the cpu for requesting interrupts 
      */ 
-    //private int lcdc;
+    private final CPU cpu;
     
-    
+
     
     public GPU(GBMem memory, CPU cpu) {
         this.memory = memory;
@@ -102,7 +123,7 @@ public class GPU {
                 screenDisplay.setRGB(i, j, 0xffffffff); // white
             }
         }
-
+        isWhite = false;
         lcdscreen = new LcdScreen(screenDisplay);
         memory.setScanLine(0);
         f.add(lcdscreen);
@@ -114,15 +135,27 @@ public class GPU {
   
     
     /**
-     * Updates the GPU graphics
-     * 
-     * 
+     * Updates the GPU graphics, draws each scanline
+     * after appropriate clock cycles have occurred
+     *
      * Referred heavily to:
      * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
      * and http://www.codeslinger.co.uk/pages/projects/gameboy/lcd.html
+     * for information on timing
+     *
+     *
      * @param cycles - clock cycles progressed since last update
      */ 
     public void updateGraphics(int cycles) {
+        if (!lcdEnabled()) {
+            resetModeOne();
+            if (!isWhite) {
+                drawWhiteBackground();
+                isWhite = true;
+            }
+            return;
+        }
+
         modeClock -= cycles;
         checkLCDInterrupts();
 
@@ -130,8 +163,7 @@ public class GPU {
         if (modeClock > 0) {
             return;
         }
-
-
+        isWhite = false;
         modeClock = 456; // reset for next scanline cycle
         int currentScanLine = memory.getScanLine();
         if (currentScanLine == 144) {
@@ -156,24 +188,24 @@ public class GPU {
      * @return true if bit 7 of lcdc is 1, false if 0
      */ 
     private boolean lcdEnabled() {
-        return isSet(memory.readByte(0xff40), LCDC_DISPLAY_ENABLE);
+        return isSet(memory.readByte(LCDC_CONTROL), LCDC_DISPLAY_ENABLE);
     }
-    
+
+
     /**
      * renderScan()
      * 
      * Renders current scanline for the gpu
      */
     private void renderScan(int currentScanLine) {
-        // get flags
-        int lcdc = memory.readByte(0xff40);
+        int lcdc = memory.readByte(LCDC_CONTROL);
         
         if (isSet(lcdc, BACKGROUND_ENABLE)) {
             drawBackground(currentScanLine);
-        }// else {
-//            drawWhiteBackground();
-//        }
+        }
 
+        //only draw the window at the end
+        // todo scanline rendering for window?
         if (isSet(lcdc, WINDOW_DISPLAY_ENABLE) && currentScanLine == 143) {
             drawWindow();
         }
@@ -187,18 +219,13 @@ public class GPU {
     
     /**
      * Updates the lcd flag in memory at 0xff41
-     * according to elapsed cycles
-     * States change between
-     * hblank, vblank, oam, vram
-     *
-     * requests interrupts as state changes
-     */ 
+     * according to elapsed cycles. Basically a
+     * state machine with 4 states:
+     * hblank, vblank, oam, vram. As each state
+     * changes, interrupts requested if enabled
+     */
     private void checkLCDInterrupts() {
-        if (!lcdEnabled()) {
-            return;
-        }
-
-        int flags = memory.readByte(0xff41);
+        int flags = memory.readByte(LCDC_STAT);
         int currentScanLine = memory.getScanLine();
         int currentMode = flags & 0x3;
         int nextMode;
@@ -209,7 +236,7 @@ public class GPU {
         if (currentScanLine >= 144) {
             nextMode = VERT_BLANK;
             requestInterrupt = isSet(flags, 4) && (currentMode != VERT_BLANK);
-        } else { //todo
+        } else {
             if (modeClock >= 376) {
                 nextMode = OAM_MODE;
                 requestInterrupt = isSet(flags, 5) && (currentMode != OAM_MODE);
@@ -236,7 +263,7 @@ public class GPU {
         }
         
         flags = setMode(flags, nextMode);
-        memory.writeByte(0xff41, flags);
+        memory.writeByte(LCDC_STAT, flags);
     }
     
     
@@ -257,18 +284,35 @@ public class GPU {
 
 
     /**
+     * resets the GPU Mode to mode one
+     * this occurs when the LCD is disabled
+     *
+     */
+    private void resetModeOne() {
+        //set mode one
+        int lcdFlags = memory.readByte(LCDC_STAT);
+        lcdFlags = setMode(lcdFlags, VERT_BLANK);
+        memory.writeByte(LCDC_STAT, lcdFlags);
+
+        //reset to "vertical blank"
+        memory.setScanLine(0);
+        modeClock = 4560; // vertical blank cycles
+    }
+
+
+
+    /**
      * draws the background on screen for
      * the scanline
      *
      *
-     *
-     * @param scanLine to draw background onto
+     * @param scanLine to draw background for
      */
     private void drawBackground(int scanLine) {
-        int lcdc = memory.readByte(0xff40);
+        int lcdc = memory.readByte(LCDC_CONTROL);
         int tileMapAddress = isSet(lcdc, 3) ? 0x9c00 : 0x9800;
-        int scY = memory.readByte(0xff42);
-        int scX = memory.readByte(0xff43);
+        int scY = memory.readByte(SC_Y);
+        int scX = memory.readByte(SC_X);
         int tileDataAddress = isSet(lcdc, 4) ? 0x8000 : 0x9000;
         boolean signedIndex = !isSet(lcdc, 4);
 
@@ -282,6 +326,7 @@ public class GPU {
             int tileAddress = signedIndex ? (tileIndex * 16) + tileDataAddress
                                           : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
 
+            //calculate correct shift from scX
             int xShift = scX % 8;
             if (xTile == 0 && xShift != 0) {
                 drawTile(tileAddress, tileLine, 0, scanLine, xShift, 7);
@@ -300,12 +345,13 @@ public class GPU {
      * 144 x 160
      */
     private void drawWhiteBackground() {
-            for (int row = 0; row < 144; row++) {
-                for (int col = 0; col < 160; col++) {
-                    screenDisplay.setRGB(col, row, 0xffffffff);
-                }
+        for (int row = 0; row < 144; row++) {
+            for (int col = 0; col < 160; col++) {
+                screenDisplay.setRGB(col, row, 0xffffffff);
             }
         }
+        lcdscreen.repaint();
+    }
 
 
 
@@ -348,7 +394,6 @@ public class GPU {
      * Window doesn't wrap
      *
      *
-     *
      * @param tileAddress of the tile
      * @param xPos on screen to draw top left of tile
      * @param yPos on screen to draw top left of tile
@@ -381,9 +426,9 @@ public class GPU {
      * draws the window onto the LCD display screen
      */
     private void drawWindow() {
-        int lcdc = memory.readByte(0xff40);
-        int wX = memory.readByte(0xff4b);
-        int wY = memory.readByte(0xff4a);
+        int lcdc = memory.readByte(LCDC_CONTROL);
+        int wX = memory.readByte(W_X);
+        int wY = memory.readByte(W_Y);
 
         if (wY > 143 || wX > 166) {
             return; //window not visible on screen
@@ -414,8 +459,8 @@ public class GPU {
      *     todo SCANLINE LIMIT of 10 SPRITES
      */
     private void drawSprites(int scanLine) {
-        int lcdc = memory.readByte(0xff40);
-        int height = isSet(lcdc, 2) ? 16 : 8;
+        int lcdc = memory.readByte(LCDC_CONTROL);
+        int height = isSet(lcdc, SPRITE_HEIGHT) ? 16 : 8;
 
 
         for (int i = 0; i < 40; ++i){
@@ -448,10 +493,10 @@ public class GPU {
      * TODO scanline LIMIT
      */
     private void drawSprite(int xPos, int yPos, int address, int flags, int height, int scanLine) {
-        boolean vertFlip = isSet(flags, 6);
-        boolean horizFlip = isSet(flags, 5);
-        boolean hasPriority = !isSet(flags, 7);
-        int paletteAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
+        boolean vertFlip = isSet(flags, VERT_FLIP);
+        boolean horizFlip = isSet(flags, HORIZ_FLIP);
+        boolean hasPriority = !isSet(flags, PRIORITY);
+        int paletteAddress = isSet(flags, PALETTE_NUM) ? 0xff49 : 0xff48;
 
         for (int i = 0; i < height; ++i) {
             int pixDataA;
@@ -473,41 +518,6 @@ public class GPU {
         }
     }
 
-
-
-
-    /**
-     * draws the sprite at address
-     * to the screen at xPos, yPos (top left corner
-     * @param xPos of LCD screen to display top left
-     * @param yPos of LCD screen to display top left
-     * @param address of first byte of sprite data
-     * @param height of the sprite (8 or 16)
-     * @param flags associated with the sprite
-     */
-    private void drawSprite(int xPos, int yPos, int address, int flags, int height) {
-        boolean vertFlip = isSet(flags, 6);
-        boolean horizFlip = isSet(flags, 5);
-        boolean hasPriority = !isSet(flags, 7);
-        int paletteAddress = isSet(flags, 4) ? 0xff49 : 0xff48;
-
-            for (int i = 0; i < height; ++i) {
-                int pixDataA;
-                int pixDataB;
-
-                if (vertFlip) {
-                    pixDataA = memory.readByte(address + ((2 * height) - i - 1) - 1);
-                    pixDataB = memory.readByte(address + ((2 * height) - i - 1));
-                } else {
-                    pixDataA = memory.readByte(address + (2 * i));
-                    pixDataB = memory.readByte(address + (2 * i) + 1);
-                }
-                if (yPos + i < 144) {
-                    drawSpriteLine(xPos, yPos + i, pixDataA, pixDataB,
-                            horizFlip, hasPriority, paletteAddress);
-                }
-            }
-    }
 
     /**
      * draws one line of a sprite
@@ -578,18 +588,18 @@ public class GPU {
 
     /**
      * Translates the pixColor (0 - 3) to actual
-     * color RGB (todo?)
+     * color RGB
      *
-     * @param pixColor
-     * @param palAddress
-     * @return
+     * @param pixNum from tile/sprite to translate
+     * @param palAddress to interpret the pix number
+     * @return a RGB value representing the actual color
      */
-    private int getColor(int pixColor, int palAddress) {
+    private int getColor(int pixNum, int palAddress) {
         int palette = memory.readByte(palAddress);
         int colSelect;
         
         
-        switch(pixColor) {
+        switch(pixNum) {
             case 0: colSelect = (palette & 0x3);
                     break;
             case 1: colSelect = (palette >> 2) & 0x3;
