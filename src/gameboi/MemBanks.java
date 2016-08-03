@@ -10,7 +10,7 @@ package gameboi;
  * 
  * Simulates the external ROM bank attached in the original gameboy cartridges
  * 
- * TODO: UPDATE RAM BANKING AND OTHER MEMBANK TYPES
+ * TODO: ADD MBC2/MBC4/MBC5
  * 
  * @author tomis007
  */
@@ -29,18 +29,35 @@ public class MemBanks {
      */ 
     public MemBanks(int[] romCartridge) {
         switch(romCartridge[0x147]) {
-            case 0:
+            case 0x0:
                 memBank = new MBC0(romCartridge);
                 break;
-            case 1:
+            case 0x1:
                 memBank = new MBC1(romCartridge);
                 break;
-            case 2:
+            case 0x2:
                 memBank = new MBC1(romCartridge);
-            case 3:
+                break;
+            case 0x3:
                 memBank = new MBC1(romCartridge);
+                break;
+            case 0xf:
+                memBank = new MBC3(romCartridge);
+                break;
+            case 0x10:
+                memBank = new MBC3(romCartridge);
+                break;
+            case 0x11:
+                memBank = new MBC3(romCartridge);
+                break;
+            case 0x12:
+                memBank = new MBC3(romCartridge);
+                break;
+            case 0x13:
+                memBank = new MBC3(romCartridge);
+                break;
             default:
-                System.err.println("Sorry, this MBC is not implemented yet");
+                System.err.println("Sorry, this MBC is not implemented yet: " + romCartridge[0x147]);
                 System.exit(1);
         }
     }
