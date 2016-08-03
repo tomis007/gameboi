@@ -31,7 +31,6 @@ public class MBC1 implements MemoryBank {
         romBanks = new int[cartridge.length];
         System.arraycopy(cartridge, 0, romBanks, 0, cartridge.length);
 
-        //todo ram bank size
         switch (cartridge[0x149]) {
             case 0:
                 ramBanks = null;
@@ -94,6 +93,8 @@ public class MBC1 implements MemoryBank {
      * @param data to write
      */
     public void writeByte(int address, int data) {
+        data &= 0xff;
+
         if (address < 0x8000) {
             updateMBCRegisters(address, data);
         } else if (ramEnabled) {
@@ -133,6 +134,4 @@ public class MBC1 implements MemoryBank {
             System.err.println("invalid write to MBC Registers");
         }
     }
-
-
 }
