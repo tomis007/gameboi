@@ -458,11 +458,13 @@ public class GPU {
             int pixDataB;
 
             if (vertFlip) {
-                pixDataA = memory.readByte(address + (2 * ((2 * height) - i - 1)) - 1);
-                pixDataB = memory.readByte(address + (2 * ((2 * height) - i - 1)));
+                int offset = (2 * (height - i)) - 2;
+                pixDataA = memory.readByte(address + offset);
+                pixDataB = memory.readByte(address + offset + 1);
             } else {
-                pixDataA = memory.readByte(address + (2 * i));
-                pixDataB = memory.readByte(address + (2 * i) + 1);
+                int offset = (2 * i);
+                pixDataA = memory.readByte(address + offset);
+                pixDataB = memory.readByte(address + offset + 1);
             }
             if (yPos + i < 144 && yPos + i == scanLine) {
                 drawSpriteLine(xPos, yPos + i, pixDataA, pixDataB,
