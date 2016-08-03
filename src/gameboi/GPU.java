@@ -286,7 +286,7 @@ public class GPU {
             if (xTile == 0 && xShift != 0) {
                 drawTile(tileAddress, tileLine, 0, scanLine, xShift, 7);
             } else if (xTile == 20 && xShift != 0) {
-                drawTile(tileAddress, tileLine, 160 - xShift, scanLine, 0, xShift);
+                drawTile(tileAddress, tileLine, 160 - xShift, scanLine, 0, xShift - 1);
             } else if (xTile != 20) {
                 drawTile(tileAddress, tileLine, (xTile * 8) - xShift, scanLine, 0, 7);
             }
@@ -343,7 +343,16 @@ public class GPU {
     }
 
 
-
+    /**
+     * Draws one window tile at specified position
+     * Window doesn't wrap
+     *
+     *
+     *
+     * @param tileAddress of the tile
+     * @param xPos on screen to draw top left of tile
+     * @param yPos on screen to draw top left of tile
+     */
     private void drawWindowTile(int tileAddress, int xPos, int yPos) {
         int paletteAddress = 0xff47;
 
@@ -411,8 +420,8 @@ public class GPU {
 
         for (int i = 0; i < 40; ++i){
             int offset = (39 - i) * 4;
-            int yPos = memory.readByte(0xfe00 + offset);// - 16;
-            int xPos = memory.readByte(0xfe00 + offset + 1);// - 8;
+            int yPos = memory.readByte(0xfe00 + offset);
+            int xPos = memory.readByte(0xfe00 + offset + 1);
             int tileNum = memory.readByte(0xfe00 + offset + 2);
             int flags = memory.readByte(0xfe00 + offset + 3);
 
