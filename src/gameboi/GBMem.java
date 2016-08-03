@@ -152,7 +152,7 @@ public class GBMem {
             return wRam[address - 0xc000];
         } else if (address < 0xfe00) {
             return wRam[address - 0xe000];
-        } else if (address < 0xfe9f) {
+        } else if (address < 0xfea0) {
             return OAMTable[address - 0xfe00];
         } else if (address < 0xff00) {
             return -1; // can't use this area
@@ -243,9 +243,8 @@ public class GBMem {
      * @param data address to start copy at divided by 0x100
      */ 
     private void DMATransfer(int data) {
-        int address = data << 8;
+        int address = data * 0x100;
 
-        //TODO MAKE FASTER?
         for (int i = 0; i < 0xa0; ++i) {
             OAMTable[i] = readByte(address + i);
         }
@@ -272,8 +271,24 @@ public class GBMem {
     public void incrementDivider() {
         IOPorts[0x04] = (IOPorts[0x04] + 1) & 0xff;
     }
-    
-    
+
+    /**
+     *
+     * increment the TIMA counter
+     */
+    public void incrementTIMA() {
+        IOPorts[0x05] = (IOPorts[0x05] + 1) & 0xff;
+    }
+
+    /**
+     *
+     * reset the TIMA clock to TMA
+     */
+    public void resetTIMA() {
+        IOPorts[0x05] = IOPorts[0x06];
+    }
+
+
     /**
      * Sets the current joypad state to nextState
      * @param nextState value to set
