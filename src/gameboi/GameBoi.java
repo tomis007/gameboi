@@ -3,7 +3,7 @@
  */
 package gameboi;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.File;
 
 /**
  *
@@ -15,16 +15,11 @@ public class GameBoi {
      * @param argv the command line arguments
      */
     public static void main(String[] argv) {
-
-        Path rom_path = Paths.get(argv[0]);
-
-        GBMem memory = new GBMem(rom_path);
-
+        GBMem memory = new GBMem(loadRom());
         CPU z80 = new CPU(memory);
-
         GPU gpu = new GPU(memory, z80);
 
-        z80.setGPU(gpu);
+        //Start the Gameboy fetch,decode,execute cycle
         while (true) {
             int count = 0;
             long startTime = System.nanoTime();
@@ -44,6 +39,25 @@ public class GameBoi {
             }
         }
     }
+
+    /**
+     * gets Path object to a Rom with a simple GUI
+     *
+     * @return Path to selected rom
+     */
+    private static Path loadRom() {
+        FileSelector fc = new FileSelector(System.getProperty("user.dir"));
+
+        File rom = fc.selectFile();
+        if (rom == null) {
+            System.err.println("Sorry, please select a ROM");
+            System.exit(1);
+        }
+
+        return rom.toPath();
+    }
+
+
 }
 
 
