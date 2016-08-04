@@ -18,7 +18,6 @@ public class CPU {
     private final GBRegisters registers;
     private int sp;
     private int pc;
-    //constants
     private static final GBRegisters.Reg A = GBRegisters.Reg.A;
     private static final GBRegisters.Reg B = GBRegisters.Reg.B;
     private static final GBRegisters.Reg C = GBRegisters.Reg.C;
@@ -39,17 +38,20 @@ public class CPU {
     private static final int CARRY_F = 4;
 
     //for debugging
-    private GPU gpu;
-    private boolean debug;
+//    private GPU gpu;
+//    private boolean debug;
 
     
     //memory
     private final GBMem memory;
-    private final int clockSpeed;
+
+    private static final int clockSpeed = 4194304;
     private int timerCounter;
     private int divideCounter;
-    private boolean executionHalted;
 
+    //stop, halt
+    private boolean isStopped;
+    private boolean executionHalted;
 
     /**
      * Interrupt state of cpu
@@ -65,31 +67,31 @@ public class CPU {
     private static final InterruptCpuState DELAY_OFF = InterruptCpuState.DELAY_OFF;
     private static final InterruptCpuState ENABLED = InterruptCpuState.ENABLED;
 
+
+
     /**
      * Constructor for gameboy z80 CPU
      * 
      * @param memory GBMem object to associate with this cpu
      */ 
     public CPU(GBMem memory) {
-        //for bios
         pc = 0x100;
         sp = 0xfffe;
         this.memory = memory;
         registers = new GBRegisters();
-        clockSpeed = 4194304;
-        timerCounter = 1024;
-        divideCounter = clockSpeed / 16382;
+        timerCounter = getCountFrequency();
+        divideCounter = 16384; //TODO
         interruptState = DISABLED;
-        debug = false;
+//        debug = false;
     }
     
     /**
      * for debug mode
      * 
      */ 
-    public void setGPU(GPU gpu) {
+/*    public void setGPU(GPU gpu) {
         this.gpu = gpu;
-    }
+    }*/
     
 
     /**
@@ -98,6 +100,9 @@ public class CPU {
      * @return clock cycles taken to execute the opcode
      */ 
     public int ExecuteOpcode() {
+        if (isStopped) {
+            return 0;
+        }
 
         if (executionHalted) {
             if ((memory.readByte(0xff0f) & memory.readByte(0xffff)) != 0) {
@@ -108,7 +113,6 @@ public class CPU {
                 return 4;
             }
         }
-
         //handle interrupt state change
         if (interruptState == DELAY_ON) {
             interruptState = ENABLED;
@@ -121,7 +125,7 @@ public class CPU {
 
         int cycles = runInstruction(opcode);
         updateDivideRegister(cycles); //TODO
-        updateTimers(cycles); //TODO
+        updateTimers(cycles);
         checkInterrupts();
 
         return cycles;
@@ -132,7 +136,7 @@ public class CPU {
      * runs one instruction at a time, prints registers
      * 
      */ 
-    private void enterDebugMode() {
+/*    private void enterDebugMode() {
         debug = true;
         Scanner sc = new Scanner(System.in);
         String input;
@@ -142,13 +146,20 @@ public class CPU {
             if ("n".equals(input)) {
                 int cycles = ExecuteOpcode();
                 gpu.updateGraphics(cycles);
-            } 
+                dumpRegisters();
+                System.out.println("FF05: 0x" + Integer.toHexString(memory.readByte(0xff05)));
+                System.out.println("cycles: " + cycles);
+                System.out.println("counter: " + timerCounter);
+            }
+            if ("p".equals(input)) {
+                System.out.println("FF05: 0x" + Integer.toHexString(memory.readByte(0xff05)));
+            }
             System.out.print(" > ");
             input = sc.nextLine();
         }
         debug = false;
     }
-
+*/
 
     /**
      * Opcode Instructions for the Gameboy Z80 Chip.
@@ -329,13 +340,13 @@ public class CPU {
             case 0xde: return subAN(A, true, true);
             //AND N
             case 0xa7: return andN(A, false);
-            case 0xa0: return andN(GBRegisters.Reg.B, false);
-            case 0xa1: return andN(GBRegisters.Reg.C, false);
-            case 0xa2: return andN(GBRegisters.Reg.D, false);
-            case 0xa3: return andN(GBRegisters.Reg.E, false);
-            case 0xa4: return andN(GBRegisters.Reg.H, false);
-            case 0xa5: return andN(GBRegisters.Reg.L, false);
-            case 0xa6: return andN(GBRegisters.Reg.HL, false);
+            case 0xa0: return andN(B, false);
+            case 0xa1: return andN(C, false);
+            case 0xa2: return andN(D, false);
+            case 0xa3: return andN(E, false);
+            case 0xa4: return andN(H, false);
+            case 0xa5: return andN(L, false);
+            case 0xa6: return andN(HL, false);
             case 0xe6: return andN(A, true);
             //OR N
             case 0xb7: return orN(A, false);
@@ -398,10 +409,10 @@ public class CPU {
             case 0x23: return incNN(HL, false);
             case 0x33: return incNN(BC, true);
             //DEC nn
-            case 0x0B: return decNN(GBRegisters.Reg.BC, false);
-            case 0x1B: return decNN(GBRegisters.Reg.DE, false);
-            case 0x2B: return decNN(GBRegisters.Reg.HL, false);
-            case 0x3B: return decNN(GBRegisters.Reg.BC, true);
+            case 0x0B: return decNN(BC, false);
+            case 0x1B: return decNN(DE, false);
+            case 0x2B: return decNN(HL, false);
+            case 0x3B: return decNN(BC, true);
 
             // extended
             case 0xcb: return extendedOpcode();
@@ -480,6 +491,7 @@ public class CPU {
             default:
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
+                System.err.println("pc: 0x" + Integer.toHexString(pc));
                 System.exit(1);
         }
         return 0;
@@ -1084,10 +1096,8 @@ public class CPU {
      * stored little endian
      */ 
     private int sixteenBitLdNnSp() {
-        int address = memory.readByte(pc);
-        pc++;
-        address = address | (memory.readByte(pc) << 8);
-        pc++;
+        int address = readWordFromMem(pc);
+        pc += 2;
 
         memory.writeByte(address, sp & 0xff);
         memory.writeByte(address + 1, ((sp & 0xff00) >> 8));
@@ -1370,7 +1380,7 @@ public class CPU {
             cycles = 8;
         } else if (src == HL) {
             data = memory.readByte(registers.getReg(src));
-            cycles = 8;
+            cycles = 8;//-4;
         } else {
             data = registers.getReg(src);
             cycles = 4;
@@ -1719,7 +1729,7 @@ public class CPU {
      */ 
     private int jump() {
         pc = readWordFromMem(pc);
-        return 12;
+        return 16;
     }
     
     /**
@@ -1732,22 +1742,22 @@ public class CPU {
         switch (opcode) {
             case 0xca:
                 if (isSet(flags, ZERO_F)) {
-                    return 4 + jump();
+                    return jump();
                 }
                 break;
             case 0xc2:
                 if (!isSet(flags, ZERO_F)) {
-                    return 4 + jump();
+                    return jump();
                 }
                 break;
             case 0xda:
                 if (isSet(flags, CARRY_F)) {
-                    return 4 + jump();
+                    return jump();
                 }
                 break;
             case 0xd2:
                 if (!isSet(flags, CARRY_F)) {
-                    return 4 + jump();
+                    return jump();
                 }
             default:
                 break;
@@ -1794,22 +1804,22 @@ public class CPU {
         switch (opcode) {
             case 0x28:
                 if (isSet(flags, ZERO_F)) {
-                    return 4 + jumpN();
+                    return jumpN();
                 }
                 break;
             case 0x20:
                 if (!isSet(flags, ZERO_F)) {
-                    return 4 + jumpN();
+                    return jumpN();
                 }
                 break;
             case 0x38:
                 if (isSet(flags, CARRY_F)) {
-                    return 4 + jumpN();
+                    return jumpN();
                 }
                 break;
             case 0x30:
                 if (!isSet(flags, CARRY_F)) {
-                    return 4 + jumpN();
+                    return jumpN();
                 }
                 break;
             default:
@@ -1832,7 +1842,7 @@ public class CPU {
         pc += 2;
         pushWordToStack(pc);
         pc = address;
-        return 12;   
+        return 24;
     }
     
     /**
@@ -1849,22 +1859,22 @@ public class CPU {
         switch(opcode) {
             case 0xc4:
                 if (!isSet(flags, ZERO_F)) {
-                    return 12 + call();
+                    return call();
                 }   
                 break;
             case 0xcc:
                 if (isSet(flags, ZERO_F)) {
-                    return 12 + call();
+                    return call();
                 }   
                 break;
             case 0xd4:
                 if (!isSet(flags, CARRY_F)) {
-                    return 12 + call();
+                    return call();
                 }   
                 break;
             case 0xdc:
                 if (isSet(flags, CARRY_F)) {
-                    return 12 + call();
+                    return call();
                 }   
                 break;
             default:
@@ -1897,7 +1907,7 @@ public class CPU {
         interruptState = DELAY_ON;
         pc = readWordFromMem(sp);
         sp += 2;
-        return 8;
+        return 16;
     }
     
     
@@ -1923,7 +1933,7 @@ public class CPU {
     private int restart(int offset) {
         pushWordToStack(pc);
         pc = offset;
-        return 32;
+        return 16;
     }
     
 
@@ -1970,7 +1980,7 @@ public class CPU {
      * Rotate A left, Old bit 7 to Carry flag
      * 
      * Flags
-     * Z - set if result is 0
+     * Z - Reset
      * H,N - Reset
      * C - Contains old bit 7 data
      * 
@@ -1989,7 +1999,7 @@ public class CPU {
             registers.setC();
         } 
 
-        registers.setReg(GBRegisters.Reg.A, reg);
+        registers.setReg(A, reg);
         return 4;   
     }
     
@@ -1998,14 +2008,14 @@ public class CPU {
      * Rotate A left through Carry Flag
      * 
      * Flags Affected:
-     * Z - Set if result is 0 (reset?)
+     * Z - reset
      * N,H - Reset
      * C - contains old bit 7 data
      * 
      */ 
     private int rlA() {
-        int reg = registers.getReg(GBRegisters.Reg.A);
-        int flags = registers.getReg(GBRegisters.Reg.F);
+        int reg = registers.getReg(A);
+        int flags = registers.getReg(F);
         
         // rotate left
         reg = reg << 1;
@@ -2017,7 +2027,7 @@ public class CPU {
             registers.setC();
         } 
 
-        registers.setReg(GBRegisters.Reg.A, reg);
+        registers.setReg(A, reg);
         return 4;   
     }
 
@@ -2027,7 +2037,7 @@ public class CPU {
      * Rotate A right, Old bit 0 to Carry flag
      * 
      * Flags
-     * Z - set if result is 0
+     * Z - Reset
      * H,N - Reset
      * C - Contains old bit 0 data
      * 
@@ -2046,7 +2056,7 @@ public class CPU {
             registers.setC();
         } 
 
-        registers.setReg(GBRegisters.Reg.A, reg);
+        registers.setReg(A, reg);
         return 4;   
     }
     
@@ -2088,7 +2098,7 @@ public class CPU {
             registers.setC();
         }
         
-        if (src == GBRegisters.Reg.HL) {
+        if (src == HL) {
             memory.writeByte(registers.getReg(src), data);
         } else {
             registers.setReg(src, data);
@@ -2191,7 +2201,8 @@ public class CPU {
      * RR n
      * 
      * Rotate n right through carry flag
-     * 
+     *
+     * 0x1f (rra is only 4 cycles)
      * Flags:
      * Z - Reset
      * N - Reset
@@ -2232,7 +2243,7 @@ public class CPU {
         } else {
             registers.setReg(src, data);
         }
-        return cycles;
+        return (setZeroFlag) ? 4 : cycles;
     }
     
     /**
@@ -2361,7 +2372,7 @@ public class CPU {
     private int bitBR(int bit, GBRegisters.Reg reg) {
         int data;
         int cycles;
-        if (reg == GBRegisters.Reg.HL) {
+        if (reg == HL) {
             data = memory.readByte(registers.getReg(reg));
             cycles = 16;
         } else {
@@ -2429,7 +2440,7 @@ public class CPU {
      * 
      * updates the divide register 
      * ASSUMES CLOCKSPEED OF 4194304
-     * 
+     * TODO
      * @param cycles (clock cycles passed this instruction)
      */ 
     private void updateDivideRegister(int cycles) {
@@ -2453,18 +2464,16 @@ public class CPU {
         if (!isSet(memory.readByte(0xff07), 2)) {
             return;
         }
-
         timerCounter -= cycles;
-        
+
         //update the counter in memory
-        if (timerCounter <= 0) {
-            timerCounter = getCountFrequency();
-            
-            if (memory.readByte(0xff05) == 0xff) {
-                memory.writeByte(0xff05, memory.readByte(0xff06));
+        while (timerCounter <= 0) {
+            timerCounter += getCountFrequency();
+
+            memory.incrementTIMA();
+            if (memory.readByte(0xff05) == 0x0) {
+                memory.resetTIMA();
                 requestInterrupt(0x2);
-            } else {
-                memory.writeByte(0xff05, memory.readByte(0xff05) + 1);
             }
         }
     }
@@ -2477,13 +2486,13 @@ public class CPU {
      */ 
     private int getCountFrequency() {
         int freq = memory.readByte(0xff07) & 0x3;
-        
+
         switch (freq) {
-            case 0: return clockSpeed / 4096;
-            case 1: return clockSpeed / 262144;
-            case 2: return clockSpeed / 65526;
-            case 3: return clockSpeed / 16384;
-            default: return clockSpeed / 4096;
+            case 0: return 1024;
+            case 1: return 16;
+            case 2: return 64;
+            case 3: return 256;
+            default: return 256;
         }
     }
     
@@ -2594,13 +2603,23 @@ public class CPU {
 
     /**
      * waits until a button is pressed
-     * TODO
      *
      */
     private int stop() {
+        isStopped = true;
         pc++;
         return 4;
     }
+
+    /**
+     * resumes cpu if stopped
+     *
+     *
+     */
+    public void resume() {
+        isStopped = false;
+    }
+
 
     /**
      * reads a 16 bit word from
@@ -2632,7 +2651,6 @@ public class CPU {
         sp--;
         memory.writeByte(sp, word & 0xff);
     }
-
 
    
 }
