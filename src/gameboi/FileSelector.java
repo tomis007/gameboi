@@ -1,9 +1,11 @@
 package gameboi;
 
 
+
 import java.io.File;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.filechooser.FileFilter;
 
 /**
  * @author tomis007
@@ -35,6 +37,9 @@ public class FileSelector {
         File file;
         JFrame f = new JFrame();
         JFileChooser fc = new JFileChooser(workingDir);
+        fc.addChoosableFileFilter(new RomFilter());
+        fc.setAcceptAllFileFilterUsed(false);
+
         int returnVal = fc.showOpenDialog(f);
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             file = fc.getSelectedFile();
