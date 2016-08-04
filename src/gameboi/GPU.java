@@ -363,6 +363,11 @@ public class GPU {
      * top left corner of tile at xPos,yPos
      * on LCD screen
      *
+     * NOTE: if window enabled, and overlaps the
+     *       address for the background tile to be
+     *       drawn at, the window takes priority and
+     *       the background tile is not drawn
+     *
      * @param tileAddress starting byte of tile data
      *        to draw
      * @param xPos of the upper left hand corner of the tile
@@ -379,13 +384,20 @@ public class GPU {
         int paletteAddress = 0xff47;
         int pixByteA = memory.readByte(tileAddress + (2 * line));
         int pixByteB = memory.readByte(tileAddress + (2 * line) + 1);
+        int wX = memory.readByte(W_X) - 7;
+        int wY = memory.readByte(W_Y);
+        boolean windowDrawn = isSet(memory.readByte(LCDC_CONTROL), WINDOW_DISPLAY_ENABLE);
 
         //draw each pixel in the line
         for (int pixel = pixStart; pixel <= pixEnd; ++pixel) {
             int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
-            int xCord = (xPos + pixel - pixStart) % 160;
+            int xCoord = (xPos + pixel - pixStart) % 160;
 
-            screenDisplay.setRGB(xCord, yPos, getColor(colorNum, paletteAddress));
+            if (wY <= yPos && xCoord >= wX && windowDrawn) {
+                break; //window will be drawn at this position
+            } else {
+                screenDisplay.setRGB(xCoord, yPos, getColor(colorNum, paletteAddress));
+            }
         }
     }
 
