@@ -229,6 +229,11 @@ public class GBMem {
             IOPorts[newAddress] = 0; //reset LCDC y-Coordinate
         } else if (address == 0xff46) {
             DMATransfer(data);
+        } else if (address == 0xff40) {
+            if (getScanLine() < 144) {
+                data |= 0x80;
+            }
+            IOPorts[newAddress] = data;
         } else {
             IOPorts[newAddress] = data;
         }
