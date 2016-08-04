@@ -99,9 +99,6 @@ public class GPU {
     private static final int SPRITE_HEIGHT = 2;
 
 
-    //background disabled
-    private boolean isWhite;
-
     /**
      * access to the cpu for requesting interrupts 
      */ 
@@ -123,7 +120,7 @@ public class GPU {
                 screenDisplay.setRGB(i, j, 0xffffffff); // white
             }
         }
-        isWhite = false;
+
         lcdscreen = new LcdScreen(screenDisplay);
         memory.setScanLine(0);
         f.add(lcdscreen);
@@ -148,12 +145,7 @@ public class GPU {
      */ 
     public void updateGraphics(int cycles) {
         if (!lcdEnabled()) {
-            resetModeOne();
-            if (!isWhite) {
-                drawWhiteBackground();
-                isWhite = true;
-            }
-            return;
+            setModeOne();
         }
 
         modeClock -= cycles;
@@ -164,17 +156,18 @@ public class GPU {
             return;
         }
 
-
-        isWhite = false;
-        modeClock = 456; // reset for next scanline cycle
+        // reset for next scanline cycle
+        modeClock = lcdEnabled() ? 456 : 4560;
         int currentScanLine = memory.getScanLine();
         if (currentScanLine == 144) {
             //vertical blank interrupt
             cpu.requestInterrupt(0);
         }
         if (currentScanLine < 152) {
-            if (currentScanLine < 144) {
+            if (currentScanLine < 144 && lcdEnabled()) {
                 renderScan(currentScanLine);
+            } else if (currentScanLine < 144 && !lcdEnabled()) {
+                drawWhiteLine(currentScanLine);
             }
             memory.incScanLine();
         } else {
@@ -285,19 +278,15 @@ public class GPU {
 
 
     /**
-     * resets the GPU Mode to mode one
+     * sets the GPU Mode to mode one
      * this occurs when the LCD is disabled
      *
      */
-    private void resetModeOne() {
+    private void setModeOne() {
         //set mode one
         int lcdFlags = memory.readByte(LCDC_STAT);
         lcdFlags = setMode(lcdFlags, VERT_BLANK);
         memory.writeByte(LCDC_STAT, lcdFlags);
-
-        //reset to "vertical blank"
-        memory.setScanLine(0);
-        modeClock = 4560; // vertical blank cycles
     }
 
 
@@ -345,12 +334,10 @@ public class GPU {
      * draws a white background onto the lcd screen
      * 144 x 160
      */
-    private void drawWhiteBackground() {
-        for (int row = 0; row < 144; row++) {
+    private void drawWhiteLine(int scanline) {
             for (int col = 0; col < 160; col++) {
-                screenDisplay.setRGB(col, row, 0xffffffff);
+                screenDisplay.setRGB(col, scanline, 0xffffffff);
             }
-        }
         lcdscreen.repaint();
     }
 
