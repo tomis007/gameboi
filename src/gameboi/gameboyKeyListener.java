@@ -90,6 +90,7 @@ public class gameboyKeyListener implements KeyListener {
         // 'press key'
         currentJoyPad = setBit(0, key_num, currentJoyPad);
         memory.updateJoyPadState(currentJoyPad);
+        cpu.resume();
         cpu.requestInterrupt(4);
     }
 
