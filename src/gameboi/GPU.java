@@ -169,8 +169,8 @@ public class GPU {
         modeClock = 456; // reset for next scanline cycle
         int currentScanLine = memory.getScanLine();
         if (currentScanLine == 144) {
-            lcdscreen.repaint();
-            cpu.requestInterrupt(0); //vertical blank interrupt
+            //vertical blank interrupt
+            cpu.requestInterrupt(0);
         }
         if (currentScanLine < 152) {
             if (currentScanLine < 144) {
@@ -198,6 +198,7 @@ public class GPU {
      * renderScan()
      * 
      * Renders current scanline for the gpu
+     * repaints the lcdscreen as well
      */
     private void renderScan(int currentScanLine) {
         int lcdc = memory.readByte(LCDC_CONTROL);
@@ -213,7 +214,7 @@ public class GPU {
         if (isSet(lcdc, SPRITE_ENABLE)) {
             drawSprites(currentScanLine);
         }
-
+        lcdscreen.repaint();
     }
     
     
@@ -533,7 +534,7 @@ public class GPU {
             int colorNum = getPixelColorNum(pixDataA, pixDataB, colorIndex);
             int color = getColor(colorNum, paletteAddress);
             if (xPos + pix < 160 && xPos + pix >= 0 && colorNum != 0 && yPos >= 0 && yPos < 144) {
-                if (hasPriority){
+                if (hasPriority) {
                     screenDisplay.setRGB(xPos + pix, yPos, color);
                 } else {
                     if (getColor(0, 0xff47) == screenDisplay.getRGB(xPos + pix, yPos)) {
