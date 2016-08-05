@@ -9,9 +9,8 @@ under development.
 The emulator passes Blargg's cpu instruction test, and
 emulates a couple games successfully. The cpu z80 emulation
 is solid, and graphics work decently well. Things like saving
-and sound have yet to be implemented. The memory accesses and
-instruction timing are both still a little off, it doesn't pass
-blargg's tests for these.
+and sound have yet to be implemented. The memory access timing and
+instruction timing are both still not 100% accurate. Gameboi doesn't pass blargg's tests for these situations.
 
 ####Screenshots  
 
