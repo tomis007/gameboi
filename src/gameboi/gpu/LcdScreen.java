@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package gameboi;
+package gameboi.gpu;
 
 
 import java.awt.Component;
@@ -33,7 +33,7 @@ import java.awt.image.BufferedImage;
 /**
  * LcdScreen
  * 
- * Used to hold the display image in the graphical interface
+ * Used to hold the gameboy screen in the graphical interface
  * 
  * @author tomis007
  */
