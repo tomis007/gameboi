@@ -117,10 +117,6 @@ public class CPU {
      * @return clock cycles taken to execute the opcode
      */ 
     public int ExecuteOpcode() {
-        if (isStopped) {
-            return 0;
-        }
-
         if (executionHalted) {
             if ((memory.readByte(0xff0f) & memory.readByte(0xffff)) != 0) {
                 executionHalted = false;
@@ -2618,6 +2614,7 @@ public class CPU {
     /**
      * waits until a button is pressed
      *
+     *TODO doesn't work
      */
     private int stop() {
         isStopped = true;
