@@ -21,7 +21,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package gameboi;
+package gameboi.joypad;
+
+import gameboi.cpu.CPU;
+import gameboi.memory.GBMem;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
@@ -32,9 +35,7 @@ import java.awt.event.KeyListener;
  * Stores present state of the 8 directional keys in memory at 0xff00
  * if bit n is 0 - key n is pressed, if it's 1 - the key is not pressed
  * 
- * NOTE: poor abstraction here, memory also depends on knowing these key
- * mappings
- * 
+ *
  * @author tomis007
  */
 public class gameboyKeyListener implements KeyListener {
@@ -51,7 +52,7 @@ public class gameboyKeyListener implements KeyListener {
     private static final char DOWN = 's';
     
     
-    gameboyKeyListener(GBMem memory, CPU cpu) {
+    public gameboyKeyListener(GBMem memory, CPU cpu) {
         this.memory = memory;
         this.cpu = cpu;
     }
@@ -70,7 +71,6 @@ public class gameboyKeyListener implements KeyListener {
      * called whenever a key is pressed, if maps to joypad controls
      * the memory at 0xff00 is updated 
      *
-     * //todo interrupts?
      * @param e keyevent
      */
     @Override
@@ -110,19 +110,7 @@ public class gameboyKeyListener implements KeyListener {
         }
     }
     
-    /**
-     * isSet
-     * 
-     * Tests the num if the bitNum bit is set
-     * 
-     * @param num number to test
-     * @param bitNum bitnumber to test
-     */ 
-    private boolean isSet(int num, int bitNum) {
-        return (((num >> bitNum) & 0x1) == 1);
-    }
 
-    
     /**
      * returns the bit in joypadstate for the keypressed
      * 
