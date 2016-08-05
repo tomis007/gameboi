@@ -1,9 +1,29 @@
 /*
- *  Gameboi
+ * The MIT License
+ *
+ * Copyright 2016 tomis007.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
-package gameboi;
+package gameboi.cpu;
 
-import java.util.Scanner;
+import gameboi.memory.GBMem;
 
 /**
  * Z80 Gameboy CPU
@@ -37,14 +57,11 @@ public class CPU {
     private static final int HALFCARRY_F = 5;
     private static final int CARRY_F = 4;
 
-    //for debugging
-//    private GPU gpu;
-//    private boolean debug;
 
-    
     //memory
     private final GBMem memory;
 
+    //cpu clocks
     private static final int clockSpeed = 4194304;
     private int timerCounter;
     private int divideCounter;
@@ -168,7 +185,7 @@ public class CPU {
      * Runs the instruction associated with the opcode, and returns the 
      * clock cycles taken.
      * 
-     * TODO HALT BUG,STOP
+     * TODO HALT BUG
      * @param opcode (required) opcode to execute
      * @return number of cycles taken to execute
      */ 
@@ -444,7 +461,6 @@ public class CPU {
             case 0x38: return jumpCN(opcode);
             
             
-            //TODO DMB BUG HALT,STOP
             case 0x76: return halt();
             case 0x10: return stop();
             case 0xf3: return disableInterrupts();
@@ -939,8 +955,6 @@ public class CPU {
 
     /**
      * halts the cpu until an interrupt occurs
-     * TODO
-     * @return 0
      */
     private int halt() {
         executionHalted = true;
@@ -2593,7 +2607,7 @@ public class CPU {
      * 
      * enables interrupts
      * 
-     * TODO read one more opcode
+     * TODO read one more opcode??
      */ 
     private int enableInterrupts() {
         interruptState = DELAY_ON;
