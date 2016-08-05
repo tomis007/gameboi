@@ -13,12 +13,18 @@ and sound have yet to be implemented. The memory accesses and
 instruction timing are both still a little off, it doesn't pass
 blargg's tests for these.
 
-####Screenshots
-![alt text][cpu_instr]
-![alt text][mario_1]
-![alt text][mario_2]
-![alt text][link]
-![alt text][pokemon]
+####Screenshots  
+
+![alt text][cpu_instr]  
+
+![alt text][mario_1]  
+
+![alt text][mario_2]  
+
+![alt text][link]  
+
+![alt text][pokemon]  
+
 
 
 [cpu_instr]: https://github.com/tomis007/gameboi/blob/master/screenshots/blargg_cpu_instructions.png
