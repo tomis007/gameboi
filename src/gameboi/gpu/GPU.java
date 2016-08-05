@@ -21,8 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package gameboi;
+package gameboi.gpu;
 
+
+import gameboi.cpu.CPU;
+import gameboi.joypad.gameboyKeyListener;
+import gameboi.memory.GBMem;
 
 import java.awt.image.BufferedImage;
 import javax.swing.JFrame;
@@ -125,7 +129,7 @@ public class GPU {
         memory.setScanLine(0);
         f.add(lcdscreen);
         f.pack();
-        f.addKeyListener(new gameboyKeyListener(memory, cpu)); 
+        f.addKeyListener(new gameboyKeyListener(memory, cpu));
         f.setVisible(true);
     }
     
@@ -134,6 +138,10 @@ public class GPU {
     /**
      * Updates the GPU graphics, draws each scanline
      * after appropriate clock cycles have occurred
+     *
+     *
+     * NOTE: operation when lcd is disabled probably isn't accurate,o
+     *       but the current behavior seems to work...
      *
      * Referred heavily to:
      * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
