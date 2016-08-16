@@ -29,7 +29,8 @@ import gameboi.joypad.gameboyKeyListener;
 import gameboi.memory.GBMem;
 
 import java.awt.image.BufferedImage;
-import javax.swing.JFrame;
+import javax.swing.*;
+import java.nio.ByteBuffer;
 
 /**
  * GPU for gameboy
@@ -47,7 +48,8 @@ public class GPU {
     private final BufferedImage screenDisplay;
     private final LcdScreen lcdscreen;
     private final GBMem memory;
-    
+    private boolean lcdDisplayEnabled;
+    private ByteBuffer buffer;
     /**
      * keeps clock timing relative to cpu
      * 456 clock cycles to draw each scanline
@@ -107,18 +109,16 @@ public class GPU {
      * access to the cpu for requesting interrupts 
      */ 
     private final CPU cpu;
-    
 
-    
-    public GPU(GBMem memory, CPU cpu) {
+
+    public GPU(GBMem memory, CPU cpu, boolean showWindow) {
         this.memory = memory;
         this.cpu = cpu;
+        lcdDisplayEnabled = showWindow;
         modeClock = 456;
-        
-        JFrame f = new JFrame("GameBoi");
-        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        
-        screenDisplay = new BufferedImage(160, 144, BufferedImage.TYPE_INT_ARGB);
+        buffer = ByteBuffer.allocate(23040);
+
+        screenDisplay = new BufferedImage(320, 288, BufferedImage.TYPE_INT_ARGB);
         for (int i = 0; i < screenDisplay.getWidth(); ++i) {
             for (int j = 0; j < screenDisplay.getHeight(); ++j) {
                 screenDisplay.setRGB(i, j, 0xffffffff); // white
@@ -127,14 +127,16 @@ public class GPU {
 
         lcdscreen = new LcdScreen(screenDisplay);
         memory.setScanLine(0);
-        f.add(lcdscreen);
-        f.pack();
-        f.addKeyListener(new gameboyKeyListener(memory, cpu));
-        f.setVisible(true);
+        if (showWindow) {
+            JFrame f = new JFrame("GameBoi");
+            f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            f.add(lcdscreen);
+            f.pack();
+            f.addKeyListener(new gameboyKeyListener(memory, cpu));
+            f.setVisible(true);
+        }
     }
-    
-  
-    
+
     /**
      * Updates the GPU graphics, draws each scanline
      * after appropriate clock cycles have occurred
@@ -175,14 +177,48 @@ public class GPU {
             if (currentScanLine < 144 && lcdEnabled()) {
                 renderScan(currentScanLine);
             } else if (currentScanLine < 144 && !lcdEnabled()) {
-                drawWhiteLine(currentScanLine);
+                drawWhiteLine(currentScanLine); //todo
             }
             memory.incScanLine();
         } else {
             memory.setScanLine(0);
         }
     }
-    
+
+
+    /**
+     *
+     * draws current state to LCD screen
+     *
+     */
+    public void drawToLCD () {
+        lcdscreen.repaint();
+    }
+
+
+
+
+    /**
+     * copies the screen data into buffer
+     * maps as follows:
+     *
+     * 0xffffffff - 0
+     * 0xffcccccc - 1
+     * 0xff777777 - 2
+     * 0xff000000 - 3
+     *
+     * only three different shades in gameboy
+     *
+     * @param buffer to write the data into
+     */
+    public void drawBuffer(ByteBuffer buffer) {
+        buffer.position(0);
+        this.buffer.position(0);
+        for (int i = 0; i < 23040; ++i) {
+            buffer.put(this.buffer.get(i));
+        }
+    }
+
     
     /**
      * Returns the status of the lcd as indicated by the 
@@ -215,7 +251,6 @@ public class GPU {
         if (isSet(lcdc, SPRITE_ENABLE)) {
             drawSprites(currentScanLine);
         }
-        lcdscreen.repaint();
     }
     
     
@@ -344,9 +379,9 @@ public class GPU {
      */
     private void drawWhiteLine(int scanline) {
             for (int col = 0; col < 160; col++) {
-                screenDisplay.setRGB(col, scanline, 0xffffffff);
+//                screenDisplay.setRGB(col, scanline, 0xffffffff);
             }
-        lcdscreen.repaint();
+//        lcdscreen.repaint();
     }
 
 
@@ -391,10 +426,53 @@ public class GPU {
             if (wY <= yPos && xCoord >= wX && windowDrawn) {
                 break; //window will be drawn at this position
             } else {
-                screenDisplay.setRGB(xCoord, yPos, getColor(colorNum, paletteAddress));
+                if (lcdDisplayEnabled) {
+                    screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
+                    screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
+                    screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                    screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                } else {
+                    drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                }
             }
         }
     }
+
+
+    /**
+     *
+     * draws a pixel of color to the buffer
+     *
+     * @param col position
+     * @param row position
+     * @param color of pixel to draw
+     */
+    private void drawToBuffer(int col, int row, int color) {
+        byte data;
+        switch(color) {
+            case 0xffffffff:
+                data = 0;
+                break;
+            case 0xffcccccc:
+                data = 1;
+                break;
+            case 0xff777777:
+                data = 2;
+                break;
+            case 0xff000000:
+                data = 3;
+                break;
+            default:
+                data = 0;
+                break;
+        }
+        buffer.put(col + (row * 160), data);
+    }
+
+
+
+
+
 
 
     /**
@@ -415,9 +493,16 @@ public class GPU {
         //draw each pixel in the line
         for (int pixel = 0; pixel <= 7; ++pixel) {
             int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
-            int xCord = (xPos + pixel);
-            if (xCord < 160 && yPos < 144 && xCord >= 0 && yPos >= 0) {
-                screenDisplay.setRGB(xCord, yPos, getColor(colorNum, paletteAddress));
+            int xCoord = (xPos + pixel);
+            if (xCoord < 160 && yPos < 144 && xCoord >= 0 && yPos >= 0) {
+                if (lcdDisplayEnabled) {
+                    screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
+                    screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
+                    screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                    screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                } else {
+                    drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                }
             }
         }
     }
@@ -541,11 +626,26 @@ public class GPU {
             int colorNum = getPixelColorNum(pixDataA, pixDataB, colorIndex);
             int color = getColor(colorNum, paletteAddress);
             if (xPos + pix < 160 && xPos + pix >= 0 && colorNum != 0 && yPos >= 0 && yPos < 144) {
+                int xCoord = xPos + pix;
                 if (hasPriority) {
-                    screenDisplay.setRGB(xPos + pix, yPos, color);
+                    if (lcdDisplayEnabled) {
+                        screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
+                        screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
+                        screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                        screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                    } else {
+                        drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                    }
                 } else {
                     if (getColor(0, 0xff47) == screenDisplay.getRGB(xPos + pix, yPos)) {
-                        screenDisplay.setRGB(xPos + pix, yPos, color);
+                        if (lcdDisplayEnabled) {
+                            screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
+                            screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
+                            screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                            screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                        } else {
+                            drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                        }
                     }
                 }
             }
