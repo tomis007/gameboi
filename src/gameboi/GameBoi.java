@@ -27,22 +27,160 @@ import gameboi.gpu.GPU;
 import gameboi.memory.GBMem;
 import gameboi.userinterface.FileSelector;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.io.File;
+import java.nio.file.Paths;
 
 /**
  *
  * @author tomis007
  */
 public class GameBoi {
+    private GBMem mem;
+    private CPU z80;
+    private GPU gpu;
+    private Path current_rom;
+
+
+    public GameBoi() {
+        Path tetris = Paths.get("/Users/thomas/Desktop/Links_Awakening.gb");
+
+        mem = new GBMem(tetris);
+        z80 = new CPU(mem);
+        gpu = new GPU(mem, z80, false);
+    }
+
+    public GameBoi(Path rom) {
+        current_rom = rom;
+        mem = new GBMem(rom);
+        z80 = new CPU(mem);
+        gpu = new GPU(mem, z80, false);
+    }
 
     /**
+     * saves current state of game
+     * to currentRomName_"fileName".gbsav
+     * @param fileName to add to end of current rom name
+     *                 for save
+     */
+    public void saveGame(String fileName) {
+        //TODO
+    }
+
+    /**
+     * loads a new rom into the gameboi
+     *
+     *
+     * @param rom Path to new rom to load
+     */
+    public void loadNewGame(Path rom) {
+        current_rom = rom;
+        mem = new GBMem(rom);
+        z80 = new CPU(mem);
+        gpu = new GPU(mem, z80, false);
+    }
+
+
+
+    public void DrawFrame(ByteBuffer buffer) {
+        if (mem.getScanLine() == 144) {
+            do {
+                int cycles;
+                cycles = z80.ExecuteOpcode();
+                gpu.updateGraphics(cycles);
+            } while (mem.getScanLine() == 144);
+        }
+
+        while (mem.getScanLine() != 144) {
+            int cycles;
+            cycles = z80.ExecuteOpcode();
+            gpu.updateGraphics(cycles);
+        }
+        gpu.drawBuffer(buffer);
+    }
+
+
+    /**
+     * signals to the gameboi that an
+     * input key has been pressed
+     *
+     *       START:   return 7;
+     *       SELECT:  return 6;
+     *       B:       return 5;
+     *       A:       return 4;
+     *       DOWN:    return 3;
+     *       UP:      return 2;
+     *       LEFT:    return 1;
+     *       RIGHT:   return 0;
+     *
+     * @param key_num of joypad key presssed as mapped
+     *                above
+     */
+    public void keyPressed(int key_num) {
+        int currentJoyPad = mem.getJoyPadState();
+
+        // not mapped to a joypad key
+        if (key_num < 0 || key_num > 7) {
+            return;
+        }
+
+        // 'press key'
+        currentJoyPad = setBit(0, key_num, currentJoyPad);
+        mem.updateJoyPadState(currentJoyPad);
+        z80.resume();
+        z80.requestInterrupt(4);
+    }
+
+    /**
+     *
+     * signals to the gameboi that an
+     * input key has been released
+     *
+     *       START:   return 7;
+     *       SELECT:  return 6;
+     *       B:       return 5;
+     *       A:       return 4;
+     *       DOWN:    return 3;
+     *       UP:      return 2;
+     *       LEFT:    return 1;
+     *       RIGHT:   return 0;
+     *
+     * @param key_num of joypad key released as mapped
+     *                above
+     */
+    public void keyReleased(int key_num) {
+        int currentJoyPad = mem.getJoyPadState();
+
+        if (key_num >= 0 && key_num < 8) {
+            currentJoyPad = setBit(1, key_num, currentJoyPad);
+            mem.updateJoyPadState(currentJoyPad);
+        }
+    }
+
+
+    /**
+     * sets bit bitNum to val in num
+     */
+    private int setBit(int val, int bitNum, int num) {
+        if (val == 1) {
+            return num | 1 << bitNum;
+        } else {
+            return num & ~(1 << bitNum);
+        }
+    }
+
+
+    /**
+     * runs the gameboi emulator locally
+     * (not configured for server)
+     *
      * @param argv the command line arguments
      */
     public static void main(String[] argv) {
         GBMem memory = new GBMem(loadRom());
         CPU z80 = new CPU(memory);
-        GPU gpu = new GPU(memory, z80);
+        GPU gpu = new GPU(memory, z80, true);
 
         //Start the Gameboy fetch,decode,execute cycle
         while (true) {
@@ -65,6 +203,7 @@ public class GameBoi {
         }
     }
 
+
     /**
      * gets Path object to a Rom with a simple GUI
      *
@@ -81,7 +220,6 @@ public class GameBoi {
 
         return rom.toPath();
     }
-
 
 }
 
