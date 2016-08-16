@@ -470,6 +470,38 @@ public class GPU {
     }
 
 
+    /**
+     * translates buffer position to RGB color
+     *
+     *
+     *
+     * @param col
+     * @param row
+     * @return
+     */
+    private int bufferToColor(int col, int row) {
+        int color;
+        byte data;
+        data = buffer.get(col + (row * 160));
+        switch(data) {
+            case 0:
+                color = 0xffffffff;
+                break;
+            case 1:
+                color = 0xffcccccc;
+                break;
+            case 2:
+                color = 0xff777777;
+                break;
+            case 3:
+                color = 0xff000000;
+                break;
+            default:
+                color = 0xffffffff;
+                break;
+        }
+        return color;
+    }
 
 
 
@@ -637,7 +669,8 @@ public class GPU {
                         drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
                     }
                 } else {
-                    if (getColor(0, 0xff47) == screenDisplay.getRGB(xPos + pix, yPos)) {
+                    if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB(xCoord * 2, yPos * 2))
+                         || (!lcdDisplayEnabled && bufferToColor(xCoord, yPos) == getColor(0, 0xff47))) {
                         if (lcdDisplayEnabled) {
                             screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
                             screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
