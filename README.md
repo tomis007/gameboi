@@ -2,15 +2,16 @@
 
 ####About
 
-This is a gameboy emulator written in java, and is currently
+This is a gameboy emulator written in java. It is currently
 under development.
 
 ####Status
-The emulator passes Blargg's cpu instruction test, and
-emulates a couple games successfully. The cpu z80 emulation
-is solid, and graphics work decently well. Things like saving
-and sound have yet to be implemented. The memory access timing and
-instruction timing are both still not 100% accurate. Gameboi doesn't pass blargg's tests for these situations.
+The emulator passes Blargg's cpu instruction test and
+emulates most games successfully. The cpu z80 emulation
+is solid and the lcd emulation works well. Saving has yet to be implemented.
+The memory access timing and instruction timing are both not 100% accurate.
+These arent really necessary for functionality, so if I get a chance I'll
+fix that. 
 
 ####Screenshots  
 
