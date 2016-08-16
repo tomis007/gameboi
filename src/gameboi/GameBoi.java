@@ -31,6 +31,9 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -43,19 +46,19 @@ public class GameBoi {
     private Path current_rom;
 
 
-    public GameBoi() {
+    public GameBoi(boolean showLCD) {
         Path tetris = Paths.get("/Users/thomas/Desktop/Links_Awakening.gb");
 
         mem = new GBMem(tetris);
         z80 = new CPU(mem);
-        gpu = new GPU(mem, z80, false);
+        gpu = new GPU(mem, z80, showLCD);
     }
 
-    public GameBoi(Path rom) {
+    public GameBoi(Path rom, boolean showLCD) {
         current_rom = rom;
         mem = new GBMem(rom);
         z80 = new CPU(mem);
-        gpu = new GPU(mem, z80, false);
+        gpu = new GPU(mem, z80, showLCD);
     }
 
     /**
@@ -82,8 +85,14 @@ public class GameBoi {
     }
 
 
-
-    public void DrawFrame(ByteBuffer buffer) {
+    /**
+     * advances gameboy state one frame
+     * draws the frame into buffer
+     * @param buffer to draw frame into
+     *               must be 23040 long
+     *
+     */
+    public void drawFrame(ByteBuffer buffer) {
         if (mem.getScanLine() == 144) {
             do {
                 int cycles;
@@ -99,6 +108,28 @@ public class GameBoi {
         }
         gpu.drawBuffer(buffer);
     }
+
+    /**
+     * advances gameboy state one frame
+     * draws the frame onto the screen
+     */
+    public void drawFrame() {
+        if (mem.getScanLine() == 144) {
+            do {
+                int cycles;
+                cycles = z80.ExecuteOpcode();
+                gpu.updateGraphics(cycles);
+            } while (mem.getScanLine() == 144);
+        }
+
+        while (mem.getScanLine() != 144) {
+            int cycles;
+            cycles = z80.ExecuteOpcode();
+            gpu.updateGraphics(cycles);
+        }
+        gpu.drawToLCD();
+    }
+
 
 
     /**
@@ -178,29 +209,11 @@ public class GameBoi {
      * @param argv the command line arguments
      */
     public static void main(String[] argv) {
-        GBMem memory = new GBMem(loadRom());
-        CPU z80 = new CPU(memory);
-        GPU gpu = new GPU(memory, z80, true);
+        GameBoi gameboy = new GameBoi(loadRom(), true);
 
         //Start the Gameboy fetch,decode,execute cycle
-        while (true) {
-            int count = 0;
-            long startTime = System.nanoTime();
-            while (count < 69905) {
-                int cycles;
-                cycles = z80.ExecuteOpcode();
-                gpu.updateGraphics(cycles);
-                count += cycles;
-            }
-            long sleepTime = 16700000 - (System.nanoTime() - startTime);
-            if (sleepTime > 0) {
-                try {
-                    Thread.sleep(sleepTime / 1000000, (int)sleepTime % 1000000);
-                } catch (InterruptedException e) {
-                    System.err.println("woops...");
-                }
-            }
-        }
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);;
+        startGameBoi(gameboy, executor);
     }
 
 
@@ -220,6 +233,17 @@ public class GameBoi {
 
         return rom.toPath();
     }
+
+    /**
+     * starts the executor executing drawFrame at correct gameboy FPS
+     * @param gameboy to start
+     * @param executor to use
+     */
+    private static void startGameBoi(GameBoi gameboy, ScheduledExecutorService executor) {
+            //update at correct clock frequency
+            executor.scheduleAtFixedRate(() -> gameboy.drawFrame(), 0, 17, TimeUnit.MILLISECONDS);
+    }
+
 
 }
 
