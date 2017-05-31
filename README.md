@@ -1,7 +1,7 @@
 #GameBoi
 
 ####About
-
+NOTE: Progress has been abandoned in favor of pyboi
 This is a gameboy emulator written in java. It is currently
 under development.
 
