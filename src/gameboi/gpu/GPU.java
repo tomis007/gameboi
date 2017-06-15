@@ -55,7 +55,9 @@ public class GPU {
      * 456 clock cycles to draw each scanline
      */
     private int modeClock;
+    private boolean prev_enabled;
 
+    private int currentMode;
 
     /**
      * GPU MODE
@@ -65,7 +67,7 @@ public class GPU {
      * 1: Vertical Blank 4560 cycles
      */ 
     private static final int OAM_MODE = 2;
-    private static final int VRAM_MODE = 3;
+    private static final int LCD_TRANS = 3;
     private static final int HORIZ_BLANK = 0;
     private static final int VERT_BLANK = 1;
 
@@ -94,6 +96,7 @@ public class GPU {
     private static final int SC_Y = 0xff42;
     private static final int SC_X = 0xff43;
     private static final int W_Y = 0xff4a;
+    private static final int LYC = 0xff45;
     private static final int W_X = 0xff4b;
 
 
@@ -117,6 +120,8 @@ public class GPU {
         lcdDisplayEnabled = showWindow;
         modeClock = 456;
         buffer = ByteBuffer.allocate(23040);
+        prev_enabled = true;
+        currentMode = OAM_MODE;
 
         screenDisplay = new BufferedImage(320, 288, BufferedImage.TYPE_INT_ARGB);
         for (int i = 0; i < screenDisplay.getWidth(); ++i) {
@@ -126,7 +131,7 @@ public class GPU {
         }
 
         lcdscreen = new LcdScreen(screenDisplay);
-        memory.setScanLine(0);
+        this.memory.setScanLine(0);
         if (showWindow) {
             JFrame f = new JFrame("GameBoi");
             f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -147,44 +152,29 @@ public class GPU {
      *
      * Referred heavily to:
      * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
-     * and http://www.codeslinger.co.uk/pages/projects/gameboy/lcd.html
      * for information on timing
      *
      *
      * @param cycles - clock cycles progressed since last update
      */ 
     public void updateGraphics(int cycles) {
-        if (!lcdEnabled()) {
-            setModeOne();
-        }
-
-        modeClock -= cycles;
-        checkLCDInterrupts();
-
-        //not time to update scanline yet
-        if (modeClock > 0) {
-            return;
-        }
-
-        // reset for next scanline cycle
-        modeClock = lcdEnabled() ? 456 : 4560;
-        int currentScanLine = memory.getScanLine();
-        if (currentScanLine == 144) {
-            //vertical blank interrupt
-            cpu.requestInterrupt(0);
-        }
-        if (currentScanLine < 152) {
-            if (currentScanLine < 144 && lcdEnabled()) {
-                renderScan(currentScanLine);
-            } else if (currentScanLine < 144 && !lcdEnabled()) {
-                drawWhiteLine(currentScanLine); //todo
-            }
-            memory.incScanLine();
+        if (lcdEnabled() && prev_enabled) {
+            // dispatch mode
+            dispatchMode(cycles);
+        } else if (lcdEnabled() && !prev_enabled) {
+            //start in HBLAnk
+            set_mode(HORIZ_BLANK, 0);
+            dispatchMode(cycles);
+            prev_enabled = true;
         } else {
-            memory.setScanLine(0);
+            //disabled set to VBlank
+            if (currentMode != VERT_BLANK) {
+                set_mode(VERT_BLANK, 0);
+                memory.setScanLine(0);
+            }
+            prev_enabled = false;
         }
     }
-
 
     /**
      *
@@ -194,8 +184,6 @@ public class GPU {
     public void drawToLCD () {
         lcdscreen.repaint();
     }
-
-
 
 
     /**
@@ -252,86 +240,127 @@ public class GPU {
             drawSprites(currentScanLine);
         }
     }
-    
-    
+
     /**
-     * Updates the lcd flag in memory at 0xff41
-     * according to elapsed cycles. Basically a
-     * state machine with 4 states:
-     * hblank, vblank, oam, vram. As each state
-     * changes, interrupts requested if enabled
+     * Horizontal blank of the screen rendering process
      */
-    private void checkLCDInterrupts() {
-        int flags = memory.readByte(LCDC_STAT);
-        int currentScanLine = memory.getScanLine();
-        int currentMode = flags & 0x3;
-        int nextMode;
-        boolean requestInterrupt = false;
-
-
-        //Set next mode and check for interrupts
-        if (currentScanLine >= 144) {
-            nextMode = VERT_BLANK;
-            requestInterrupt = isSet(flags, 4) && (currentMode != VERT_BLANK);
-        } else {
-            if (modeClock >= 376) {
-                nextMode = OAM_MODE;
-                requestInterrupt = isSet(flags, 5) && (currentMode != OAM_MODE);
-            } else if (modeClock >= 204) {
-                nextMode = VRAM_MODE;
-            } else {
-                nextMode = HORIZ_BLANK;
-                requestInterrupt = isSet(flags, 3) && (currentMode != HORIZ_BLANK);
-            }
+    private void horiz_blank() {
+        if (modeClock < 204) {
+            return;
         }
-
-        if (requestInterrupt) {
-            cpu.requestInterrupt(1); //LCD Interrupt
-        }
-
-        //check for LY == LYCc
-        if (memory.readByte(0xff45) == currentScanLine) {
-            flags |= 1 << 2;
-            if (isSet(flags, 6)) {
+        //time to increment scanline
+        memory.incScanLine();
+        //check for LYC interrupt
+        if (memory.readByte(LYC) == memory.getScanLine()) {
+            memory.setLCDCoincidence(1);
+            if ((memory.readByte(LCDC_STAT) & 0x40) != 0) {
                 cpu.requestInterrupt(1);
             }
         } else {
-            flags &= ~(1 << 2);
+            memory.setLCDCoincidence(0);
         }
-        
-        flags = setMode(flags, nextMode);
-        memory.writeByte(LCDC_STAT, flags);
-    }
-    
-    
-    /**
-     * Sets the next mode in flag
-     * (lowest two bits)
-     */ 
-    private int setMode(int flag, int nextMode) {
-        flag &= 0xfc;
-        switch(nextMode) {
-            case 0: return flag;
-            case 1: return flag | 0x1;
-            case 2: return flag | 0x2;
-            case 3: return flag | 0x3;
-            default: return flag;
-        }    
+
+        if (memory.getScanLine() < 144) {
+            set_mode(OAM_MODE, modeClock % 204);
+        } else {
+            //vblank time
+            cpu.requestInterrupt(0);
+            set_mode(VERT_BLANK, modeClock % 204);
+        }
     }
 
-
     /**
-     * sets the GPU Mode to mode one
-     * this occurs when the LCD is disabled
-     *
+     * Vertical blank of the screen rendering process
      */
-    private void setModeOne() {
-        //set mode one
-        int lcdFlags = memory.readByte(LCDC_STAT);
-        lcdFlags = setMode(lcdFlags, VERT_BLANK);
-        memory.writeByte(LCDC_STAT, lcdFlags);
+    private void v_blank() {
+        if ((modeClock >= 456) || (memory.getScanLine() == 153 && modeClock >= 64)) {
+            memory.incScanLine();
+            if (memory.getScanLine() > 153) {
+                memory.setScanLine(0);
+                set_mode(OAM_MODE, 0);
+            } else {
+                set_mode(VERT_BLANK, modeClock % 456);
+            }
+        }
     }
 
+    /**
+     * Mode 2 of the drawing process,
+     * reading from OAM memory
+     */
+    private void o_ram() {
+        if (modeClock >= 80) {
+            set_mode(LCD_TRANS, modeClock % 80);
+        }
+    }
+
+    private void lcd_trans() {
+        if (modeClock >= 174) {
+            renderScan(memory.getScanLine());
+            set_mode(HORIZ_BLANK, modeClock % 204);
+        }
+    }
+
+    /**
+     * Updates the current lcd mode
+     * @param cycles that have progressed
+     */
+    private void dispatchMode(int cycles) {
+        modeClock += cycles;
+        switch (currentMode) {
+            case HORIZ_BLANK:
+                horiz_blank();
+                return;
+            case VERT_BLANK:
+                v_blank();
+                return;
+            case OAM_MODE:
+                o_ram();
+                return;
+            case LCD_TRANS:
+                lcd_trans();
+                return;
+            default:
+                return;
+        }
+    }
+    
+    /**
+     * Updates the current lcd mode
+     * @param mode next mode
+     * @param cycles to reset to
+     */
+    private void set_mode(int mode, int cycles) {
+        boolean req_int = false;
+        modeClock = cycles;
+        currentMode = mode;
+        int flag = memory.readByte(LCDC_STAT);
+        flag &= 0xfc;
+
+        switch (mode) {
+            case HORIZ_BLANK:
+                flag |= 0x0;
+                if ((flag & 0x8) != 0) req_int = true;
+                break;
+            case VERT_BLANK:
+                flag |= 0x1;
+                if ((flag & 0x10) != 0) req_int = true;
+                break;
+            case OAM_MODE:
+                flag |= 0x2;
+                if ((flag & 0x20) != 0) req_int = true;
+                break;
+            case LCD_TRANS:
+                flag |= 0x3;
+                break;
+            default:
+                break;
+        }
+        memory.writeByte(LCDC_STAT, flag);
+        if (req_int) {
+            cpu.requestInterrupt(1);
+        }
+    }
 
 
     /**
@@ -370,20 +399,6 @@ public class GPU {
             }
         }
     }
-
-
-    /**
-     *
-     * draws a white background onto the lcd screen
-     * 144 x 160
-     */
-    private void drawWhiteLine(int scanline) {
-            for (int col = 0; col < 160; col++) {
-//                screenDisplay.setRGB(col, scanline, 0xffffffff);
-            }
-//        lcdscreen.repaint();
-    }
-
 
 
     /**
@@ -427,10 +442,7 @@ public class GPU {
                 break; //window will be drawn at this position
             } else {
                 if (lcdDisplayEnabled) {
-                    screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
-                    screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
-                    screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
-                    screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                    draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
                 } else {
                     drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
                 }
@@ -528,10 +540,7 @@ public class GPU {
             int xCoord = (xPos + pixel);
             if (xCoord < 160 && yPos < 144 && xCoord >= 0 && yPos >= 0) {
                 if (lcdDisplayEnabled) {
-                    screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
-                    screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
-                    screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
-                    screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                    draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
                 } else {
                     drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
                 }
@@ -580,111 +589,78 @@ public class GPU {
      *
      *     todo SCANLINE LIMIT of 10 SPRITES
      */
-    private void drawSprites(int scanLine) {
+    private void drawSprites(int scanline) {
         int lcdc = memory.readByte(LCDC_CONTROL);
         int height = isSet(lcdc, SPRITE_HEIGHT) ? 16 : 8;
 
         for (int i = 0; i < 40; ++i){
             int offset = (39 - i) * 4;
-            int yPos = memory.readByte(0xfe00 + offset);
-            int xPos = memory.readByte(0xfe00 + offset + 1);
+            int y = memory.readByte(0xfe00 + offset);
+            int x = memory.readByte(0xfe00 + offset + 1);
             int tileNum = memory.readByte(0xfe00 + offset + 2);
             int flags = memory.readByte(0xfe00 + offset + 3);
-
             if (height == 16) {
                 tileNum &= 0xfe;
             }
-            if (xPos < 168 && xPos > 0 && yPos < 160 && yPos > 0) {
+            if ((scanline >= (y - 16)) && ((y - 15) + height >= scanline)) {
                 int address = (tileNum * 16) + 0x8000;
-                drawSprite(xPos - 8, yPos - 16, address, flags, height, scanLine);
+                draw_sprite_line(x - 8, y -16, address,
+                                flags, height, scanline);
             }
         }
     }
 
 
     /**
-     * draws the sprite at address
+     * draws the sprite for current scanline at address
      * to the screen at xPos, yPos (top left corner
-     * @param xPos of LCD screen to display top left
-     * @param yPos of LCD screen to display top left
+     * @param x of LCD screen to display top left
+     * @param y of LCD screen to display top left
      * @param address of first byte of sprite data
      * @param height of the sprite (8 or 16)
      * @param flags associated with the sprite
      *
      * TODO scanline LIMIT
      */
-    private void drawSprite(int xPos, int yPos, int address, int flags, int height, int scanLine) {
-        boolean vertFlip = isSet(flags, VERT_FLIP);
+    private void draw_sprite_line(int x, int y, int address, int flags, int height, int scanline) {
         boolean horizFlip = isSet(flags, HORIZ_FLIP);
         boolean hasPriority = !isSet(flags, PRIORITY);
         int paletteAddress = isSet(flags, PALETTE_NUM) ? 0xff49 : 0xff48;
+        int sprite_line = height - (scanline - y);
 
-        for (int i = 0; i < height; ++i) {
-            int pixDataA;
-            int pixDataB;
-
-            if (vertFlip) {
-                int offset = (2 * (height - i)) - 2;
-                pixDataA = memory.readByte(address + offset);
-                pixDataB = memory.readByte(address + offset + 1);
-            } else {
-                int offset = (2 * i);
-                pixDataA = memory.readByte(address + offset);
-                pixDataB = memory.readByte(address + offset + 1);
-            }
-            if (yPos + i < 144 && yPos + i == scanLine) {
-                drawSpriteLine(xPos, yPos + i, pixDataA, pixDataB,
-                        horizFlip, hasPriority, paletteAddress);
-            }
+        int offset;
+        if (!isSet(flags, VERT_FLIP)) {
+            offset = 2 * (scanline - y);
+        } else {
+            offset = 2 * (sprite_line - 1);
         }
-    }
+        int pixDataA = memory.readByte(address + offset);
+        int pixDataB = memory.readByte(address + offset + 1);
 
-
-    /**
-     * draws one line of a sprite
-     *
-     *
-     * @param xPos left most corner of line to start (lcd screen) ( < 160)
-     * @param yPos vertical position of line (lcd screen) ( < 144)
-     * @param pixDataA of line
-     * @param pixDataB of line
-     * @param horizFlip flip horizontal (boolean)
-     */
-    private void drawSpriteLine(int xPos, int yPos, int pixDataA, int pixDataB,
-                                boolean horizFlip, boolean hasPriority, int paletteAddress) {
         for (int pix = 0; pix < 8; ++pix) {
-            int colorIndex = horizFlip ? 7 - pix : pix;
-
-            int colorNum = getPixelColorNum(pixDataA, pixDataB, colorIndex);
-            int color = getColor(colorNum, paletteAddress);
-            if (xPos + pix < 160 && xPos + pix >= 0 && colorNum != 0 && yPos >= 0 && yPos < 144) {
-                int xCoord = xPos + pix;
+            int col_index = horizFlip ? 7 - pix : pix;
+            int color_num = getPixelColorNum(pixDataA, pixDataB, col_index);
+            int color = getColor(color_num, paletteAddress);
+            if ((x + pix < 160) && (x + pix >= 0) && color_num != 0) {
                 if (hasPriority) {
                     if (lcdDisplayEnabled) {
-                        screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
-                        screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
-                        screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
-                        screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                        draw_pix_lcdscreen(x + pix, scanline, color);
                     } else {
-                        drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                        drawToBuffer(x, scanline, color);
                     }
                 } else {
-                    if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB(xCoord * 2, yPos * 2))
-                         || (!lcdDisplayEnabled && bufferToColor(xCoord, yPos) == getColor(0, 0xff47))) {
+                    if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB((x + pix)* 2, y * 2))
+                            || (!lcdDisplayEnabled && bufferToColor(x + pix, y) == getColor(0, 0xff47))) {
                         if (lcdDisplayEnabled) {
-                            screenDisplay.setRGB(xCoord * 2, yPos * 2, getColor(colorNum, paletteAddress));
-                            screenDisplay.setRGB((xCoord * 2) + 1, yPos * 2, getColor(colorNum, paletteAddress));
-                            screenDisplay.setRGB(xCoord * 2, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
-                            screenDisplay.setRGB((xCoord * 2) + 1, (yPos * 2) + 1, getColor(colorNum, paletteAddress));
+                            draw_pix_lcdscreen(x + pix, scanline, color);
                         } else {
-                            drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                            drawToBuffer(x, y, color);
                         }
                     }
                 }
             }
         }
     }
-
 
     /**
      * Returns the colorNumber specified by the two
@@ -707,7 +683,12 @@ public class GPU {
         return colorNum;
     }
 
-
+    private void draw_pix_lcdscreen(int x, int y, int color) {
+        screenDisplay.setRGB(x * 2, y * 2, color);
+        screenDisplay.setRGB((x * 2) + 1, y * 2, color);
+        screenDisplay.setRGB(x * 2, (y * 2) + 1, color);
+        screenDisplay.setRGB((x * 2) + 1, (y * 2) + 1, color);
+    }
 
 
     /**
