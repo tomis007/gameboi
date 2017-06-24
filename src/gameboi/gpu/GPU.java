@@ -123,7 +123,7 @@ public class GPU {
         prev_enabled = true;
         currentMode = OAM_MODE;
 
-        screenDisplay = new BufferedImage(320, 288, BufferedImage.TYPE_INT_ARGB);
+        screenDisplay = new BufferedImage(160, 144, BufferedImage.TYPE_INT_ARGB);
         for (int i = 0; i < screenDisplay.getWidth(); ++i) {
             for (int j = 0; j < screenDisplay.getHeight(); ++j) {
                 screenDisplay.setRGB(i, j, 0xffffffff); // white
@@ -602,7 +602,7 @@ public class GPU {
             if (height == 16) {
                 tileNum &= 0xfe;
             }
-            if ((scanline >= (y - 16)) && ((y - 15) + height >= scanline)) {
+            if ((scanline >= (y - 16)) && ((y - 17) + height >= scanline)) {
                 int address = (tileNum * 16) + 0x8000;
                 draw_sprite_line(x - 8, y -16, address,
                                 flags, height, scanline);
@@ -649,7 +649,7 @@ public class GPU {
                         drawToBuffer(x, scanline, color);
                     }
                 } else {
-                    if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB((x + pix)* 2, y * 2))
+                    if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB(x + pix,scanline))
                             || (!lcdDisplayEnabled && bufferToColor(x + pix, y) == getColor(0, 0xff47))) {
                         if (lcdDisplayEnabled) {
                             draw_pix_lcdscreen(x + pix, scanline, color);
@@ -684,10 +684,12 @@ public class GPU {
     }
 
     private void draw_pix_lcdscreen(int x, int y, int color) {
+        screenDisplay.setRGB(x,y,color);
+        /*
         screenDisplay.setRGB(x * 2, y * 2, color);
         screenDisplay.setRGB((x * 2) + 1, y * 2, color);
         screenDisplay.setRGB(x * 2, (y * 2) + 1, color);
-        screenDisplay.setRGB((x * 2) + 1, (y * 2) + 1, color);
+        screenDisplay.setRGB((x * 2) + 1, (y * 2) + 1, color);*/
     }
 
 
