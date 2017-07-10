@@ -50,6 +50,7 @@ public class GPU {
     private final GBMem memory;
     private boolean lcdDisplayEnabled;
     private ByteBuffer buffer;
+    private final CPU cpu;
     /**
      * keeps clock timing relative to cpu
      * 456 clock cycles to draw each scanline
@@ -108,12 +109,6 @@ public class GPU {
     private static final int SPRITE_HEIGHT = 2;
 
 
-    /**
-     * access to the cpu for requesting interrupts 
-     */ 
-    private final CPU cpu;
-
-
     public GPU(GBMem memory, CPU cpu, boolean showWindow) {
         this.memory = memory;
         this.cpu = cpu;
@@ -130,16 +125,21 @@ public class GPU {
             }
         }
 
-        lcdscreen = new LcdScreen(screenDisplay);
         this.memory.setScanLine(0);
+        lcdscreen = null;
+       /*
         if (showWindow) {
+            lcdscreen = new LcdScreen(screenDisplay);
+            this.memory.setScanLine(0);
             JFrame f = new JFrame("GameBoi");
             f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             f.add(lcdscreen);
             f.pack();
             f.addKeyListener(new gameboyKeyListener(memory, cpu));
             f.setVisible(true);
-        }
+        } else {
+            lcdscreen = null;
+        } */
     }
 
     /**
@@ -739,4 +739,6 @@ public class GPU {
         }
         return color;
     }
+
+
 }

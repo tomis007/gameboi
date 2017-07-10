@@ -26,6 +26,7 @@ import main.java.gameboi.cpu.CPU;
 import main.java.gameboi.gpu.GPU;
 import main.java.gameboi.memory.GBMem;
 import main.java.gameboi.userinterface.FileSelector;
+import main.java.gameboi.joypad.JoyPad;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -46,6 +47,7 @@ public class GameBoi {
     private CPU z80;
     private GPU gpu;
     private Path current_rom;
+    private JoyPad joypad;
 
     /**
      * runs the gameboi emulator locally
@@ -54,12 +56,12 @@ public class GameBoi {
      * @param argv the command line arguments
      */
     public static void main(String[] argv) {
-        GameBoi gameboy = new GameBoi(selectRom());
+        //GameBoi gameboy = new GameBoi(selectRom());
 
         //Start the Gameboy fetch,decode,execute cycle
         //TODO Lets fix this...
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        startGameBoi(gameboy, executor);
+        //ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+        //startGameBoi(gameboy, executor);
     }
 
     /**
@@ -79,7 +81,8 @@ public class GameBoi {
     public GameBoi() {
         mem = new GBMem();
         z80 = new CPU(mem);
-        gpu = new GPU(mem, z80, true);
+        gpu = new GPU(mem, z80, false);
+        joypad = new JoyPad(z80, mem);
     }
 
     public void loadRom(Path rom) {
@@ -105,6 +108,26 @@ public class GameBoi {
         }
     }
 
+    /**
+     *
+     * interface to keyPressed event in joypad
+     * @param key_num key pressed (0-7)
+     */
+    public void keyPressed(int key_num) {
+        joypad.keyPressed(key_num);
+    }
+
+    /**
+     * interface to keyReleased event in joypad
+     * @param key_num key released (0-7)
+     */
+    public void keyReleased(int key_num) {
+        joypad.keyReleased(key_num);
+    }
+
+    public int getJoyPadState() {
+        return mem.getJoyPadState();
+    }
 
     /**
      * advances gameboy state one frame
@@ -122,7 +145,7 @@ public class GameBoi {
      * advances gameboy state one frame
      * draws the frame onto the screen
      */
-    public void renderFrame() {
+    private void renderFrame() {
         int count = 0, cycles;
         while (count < 70244) {
             cycles = z80.ExecuteOpcode();
@@ -137,76 +160,6 @@ public class GameBoi {
     public void drawToLCD() {
         renderFrame();
         gpu.drawToLCD();
-    }
-
-
-    /**
-     * signals to the gameboi that an
-     * input key has been pressed
-     *
-     *       START:   return 7;
-     *       SELECT:  return 6;
-     *       B:       return 5;
-     *       A:       return 4;
-     *       DOWN:    return 3;
-     *       UP:      return 2;
-     *       LEFT:    return 1;
-     *       RIGHT:   return 0;
-     *
-     * @param key_num of joypad key pressed as mapped
-     *                above
-     */
-    public void keyPressed(int key_num) {
-        int currentJoyPad = mem.getJoyPadState();
-
-        // not mapped to a joypad key
-        if (key_num < 0 || key_num > 7) {
-            return;
-        }
-
-        // 'press key'
-        currentJoyPad = setBit(0, key_num, currentJoyPad);
-        mem.updateJoyPadState(currentJoyPad);
-        z80.resume();
-        z80.requestInterrupt(4);
-    }
-
-    /**
-     *
-     * signals to the gameboi that an
-     * input key has been released
-     *
-     *       START:   return 7;
-     *       SELECT:  return 6;
-     *       B:       return 5;
-     *       A:       return 4;
-     *       DOWN:    return 3;
-     *       UP:      return 2;
-     *       LEFT:    return 1;
-     *       RIGHT:   return 0;
-     *
-     * @param key_num of joypad key released as mapped
-     *                above
-     */
-    public void keyReleased(int key_num) {
-        int currentJoyPad = mem.getJoyPadState();
-
-        if (key_num >= 0 && key_num < 8) {
-            currentJoyPad = setBit(1, key_num, currentJoyPad);
-            mem.updateJoyPadState(currentJoyPad);
-        }
-    }
-
-
-    /**
-     * sets bit bitNum to val in num
-     */
-    private int setBit(int val, int bitNum, int num) {
-        if (val == 1) {
-            return num | 1 << bitNum;
-        } else {
-            return num & ~(1 << bitNum);
-        }
     }
 
 
