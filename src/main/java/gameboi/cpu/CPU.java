@@ -88,6 +88,9 @@ public class CPU {
     private static final InterruptCpuState ENABLED = InterruptCpuState.ENABLED;
 
 
+    private static final int BYTE_SAVE_LENGTH = 17;
+
+
 
     /**
      * Constructor for gameboy z80 CPU
@@ -102,6 +105,7 @@ public class CPU {
         timerCounter = getCountFrequency();
         divideCounter = 16384; //TODO
         interruptState = DISABLED;
+        executionHalted = false; //TODO ADD TO SAVING
     }
 
 
@@ -110,10 +114,10 @@ public class CPU {
      * this can be written to file and loaded
      * with loadState()
      *
-     * @return
+     * @return byte array to write
      */
     public byte[] saveState() {
-        byte[] buf = new byte[12];
+        byte[] buf = new byte[BYTE_SAVE_LENGTH];
         buf[0] = (byte)registers.getReg(A);
         buf[1] = (byte)registers.getReg(B);
         buf[2] = (byte)registers.getReg(C);
@@ -126,33 +130,90 @@ public class CPU {
         buf[9] = (byte)((sp & 0xff00) >> 8);
         buf[10] = (byte)(pc & 0xff);
         buf[11] = (byte)((pc & 0xff00) >> 8);
+        buf[12] = (byte)(timerCounter & 0xff);
+        buf[13] = (byte)((timerCounter & 0xff00) >> 8);
+        buf[14] = (byte)(divideCounter & 0xff);
+        buf[15] = (byte)((divideCounter & 0xff00) >> 8);
+        buf[16] = interruptStateToByte();
         return buf;
     }
 
+    /**
+     *
+     * Returns current interrupt state as a byte for saving
+     * @return byte representing current interrupt state
+     */
+    private byte interruptStateToByte() {
+        switch(interruptState) {
+            case ENABLED:
+                return 0;
+            case DELAY_OFF:
+                return 1;
+            case DELAY_ON:
+                return 2;
+            case DISABLED:
+                return 3;
+            default:
+                return -1;
+        }
+    }
 
+    private void setInterruptStateFromByte(byte state) {
+        switch(state) {
+            case 0:
+                interruptState = ENABLED;
+                break;
+            case 1:
+                interruptState = DELAY_OFF;
+                break;
+            case 2:
+                interruptState = DELAY_ON;
+                break;
+            case 3:
+                interruptState = DISABLED;
+                break;
+            default:
+                interruptState = DISABLED;
+                System.err.println("Unable to load interrupt state from save file");
+                break;
+        }
+
+    }
     /**
      * returns the state to how it was saved
      * from saveState()
      *
      *
-     * @param savedGame
+     * @param save same byte array as created in saveGame
      */
-    public void loadState(byte[] savedGame) {
-        registers.setReg(A, Byte.toUnsignedInt(savedGame[0]));
-        registers.setReg(B, Byte.toUnsignedInt(savedGame[1]));
-        registers.setReg(C, Byte.toUnsignedInt(savedGame[2]));
-        registers.setReg(D, Byte.toUnsignedInt(savedGame[3]));
-        registers.setReg(E, Byte.toUnsignedInt(savedGame[4]));
-        registers.setReg(F, Byte.toUnsignedInt(savedGame[5]));
-        registers.setReg(H, Byte.toUnsignedInt(savedGame[6]));
-        registers.setReg(L, Byte.toUnsignedInt(savedGame[7]));
-        sp = Byte.toUnsignedInt(savedGame[8]);
-        sp = sp | Byte.toUnsignedInt(savedGame[9]) << 8;
-        pc = Byte.toUnsignedInt(savedGame[8]);
-        pc = pc | Byte.toUnsignedInt(savedGame[9]) << 8;
+    public void loadState(byte[] save) {
+        registers.setReg(A, Byte.toUnsignedInt(save[0]));
+        registers.setReg(B, Byte.toUnsignedInt(save[1]));
+        registers.setReg(C, Byte.toUnsignedInt(save[2]));
+        registers.setReg(D, Byte.toUnsignedInt(save[3]));
+        registers.setReg(E, Byte.toUnsignedInt(save[4]));
+        registers.setReg(F, Byte.toUnsignedInt(save[5]));
+        registers.setReg(H, Byte.toUnsignedInt(save[6]));
+        registers.setReg(L, Byte.toUnsignedInt(save[7]));
+        sp = Byte.toUnsignedInt(save[8]);
+        sp |= Byte.toUnsignedInt(save[9]) << 8;
+        pc = Byte.toUnsignedInt(save[10]);
+        pc |= Byte.toUnsignedInt(save[11]) << 8;
+        timerCounter = Byte.toUnsignedInt(save[12]);
+        timerCounter |= (Byte.toUnsignedInt(save[13]) << 8);
+        divideCounter = Byte.toUnsignedInt(save[14]);
+        divideCounter |= Byte.toUnsignedInt(save[15]);
+        setInterruptStateFromByte(save[16]);
     }
 
 
+    /**
+     * amount of bytes used for byte saving
+     * @return lenght of bytes used for saving
+     */
+    public static int byteSaveLength() {
+        return BYTE_SAVE_LENGTH;
+    }
 
     /**
      * Execute the next opcode in memory, and update the CPU timers

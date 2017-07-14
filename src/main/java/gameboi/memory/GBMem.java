@@ -27,6 +27,7 @@ package main.java.gameboi.memory;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Represents the memory of the gameboy
@@ -60,6 +61,8 @@ public class GBMem {
     private int[] HRam;
 
 
+    //saving byte size info
+    private static final int BYTE_SAVE_LENGTH = 0x41a1;
 
     /**
      * KEY 7 - SELECT
@@ -88,61 +91,8 @@ public class GBMem {
         HRam = new int[0x80];
         joyPadState = 0xff; //no keys pressed
         memBank = null;
-    }
 
-
-    public void loadRom(Path path) {
-        try {
-            byte[] rom = Files.readAllBytes(path);
-            int[] cartridge = new int[rom.length];
-
-            for (int i = 0; i < rom.length; ++i) {
-                cartridge[i] = Byte.toUnsignedInt(rom[i]);
-            }
-
-            //intialize membanks, copy vRam, wRam, OAMTable
-            //from cartridge TODO DONT NEED
-            memBank = new MemBanks(cartridge);
-        } catch (IOException e) {
-            System.err.println("Caught IOException: " + e.getMessage());
-            System.exit(1);
-        }
-    }
-    /**
-     * Constructor for GBMem object
-     * <p>
-     * Initializes the GBMem object and loads the 'cartridge'
-     * into memory
-     * 
-     * @param path  (required) Path object specifying the game rom to load
-     */
-    public GBMem(Path path) {
-        vRam = new int[0x2000];
-        wRam = new int[0x2000];
-        OAMTable = new int[0xa0];
-        IOPorts = new int[0x80];
-        HRam = new int[0x80];
-
-        try {
-            byte[] rom = Files.readAllBytes(path);
-            int[] cartridge = new int[rom.length];
-
-            for (int i = 0; i < rom.length; ++i) {
-                cartridge[i] = Byte.toUnsignedInt(rom[i]);
-            }
-
-            //intialize membanks, copy vRam, wRam, OAMTable
-            //from cartridge TODO DONT NEED
-            memBank = new MemBanks(cartridge);
-        } catch (IOException e) {
-            System.err.println("Caught IOException: " + e.getMessage());
-            System.exit(1);
-        }
-        joyPadState = 0xff; //no keys pressed
-
-
-        //initialize values in memory
-        //gb bios leaves this state after running
+        //gb 'bios' leaves in this state
         IOPorts[0x10] = 0x80;
         IOPorts[0x11] = 0xbf;
         IOPorts[0x12] = 0xf3;
@@ -164,11 +114,107 @@ public class GBMem {
         IOPorts[0x49] = 0xff;
     }
 
+
+    /**
+     * Save the current memory state to a byte array for resuming
+     * Doesn't save the ROM (needs to be loaded with loadRom)
+     *
+     * @return current state of memory (in a long byte array)
+     */
+    public byte[] saveState() {
+        byte[] save = new byte[BYTE_SAVE_LENGTH];
+        copyArray(vRam, 0, save, 0, 0x2000);
+        copyArray(wRam, 0, save, 0x2000, 0x2000);
+        copyArray(OAMTable, 0, save, 0x4000, 0xa0);
+        copyArray(IOPorts, 0, save, 0x40a0, 0x80);
+        copyArray(HRam, 0, save, 0x4120, 0x80);
+        save[BYTE_SAVE_LENGTH - 1] = (byte)(joyPadState & 0xff);
+        return save;
+    }
+
+
+    /**
+     * Load the current memory state from the byte array generated in saveMem
+     * Needs the rom to be loaded as well to play the game TODO
+     *
+     */
+    public void loadState(byte[] save) {
+        copyArray(save, 0, vRam, 0, 0x2000);
+        copyArray(save, 0x2000, wRam, 0, 0x2000);
+        copyArray(save, 0x4000, OAMTable, 0, 0xa0);
+        copyArray(save, 0x40a0, IOPorts, 0, 0x80);
+        copyArray(save, 0x4120, HRam, 0, 0x80);
+        joyPadState = Byte.toUnsignedInt(save[BYTE_SAVE_LENGTH - 1]);
+    }
+
+
+    /**
+     * Overloaded copyArray for saving
+     *
+     * @param src array
+     * @param srcPos initial position
+     * @param dst byte destination array
+     * @param dstPos initial pos
+     * @param len len of items to copy
+     */
+    private void copyArray(int[] src, int srcPos, byte[] dst, int dstPos, int len) {
+        for (int i = 0; i < len; ++i) {
+            dst[i + dstPos] = (byte)(src[i + srcPos] & 0xff);
+        }
+
+    }
+
+    /**
+     * Overloaded copyArray for saving
+     * @param src byte array
+     * @param srcPos initial pos
+     * @param dst int destination
+     * @param dstPos initial pos
+     * @param len len of items to copy
+     */
+    private void copyArray(byte[] src, int srcPos, int[] dst, int dstPos, int len) {
+        for (int i = 0; i < len; ++i) {
+            dst[dstPos + i] = Byte.toUnsignedInt(src[i + srcPos]);
+        }
+    }
+
+    /**
+     * The length of the save byte state array
+     * @return
+     */
+    public static int byteSaveLength() {
+        return BYTE_SAVE_LENGTH;
+    }
+
+
+    /**
+     *
+     * Initialize a rom into memory
+     *
+     *
+     * @param path of rom to load
+     */
+    public void loadRom(Path path) {
+        try {
+            byte[] rom = Files.readAllBytes(path);
+            int[] cartridge = new int[rom.length];
+
+            for (int i = 0; i < rom.length; ++i) {
+                cartridge[i] = Byte.toUnsignedInt(rom[i]);
+            }
+
+            memBank = new MemBanks(cartridge);
+        } catch (IOException e) {
+            System.err.println("Error Loading rom: " + e.getMessage());
+            System.exit(1); // TODO probably not
+        }
+    }
+
     /**
      * Read a 'byte' from memory.
      *
      *
-     * NOTE: RIGHT NOW ONLY IMPLEMENTING FOR NO MEMORY BANKS
+     * NOTE: RIGHT NOW ONLY IMPLEMENTING FOR NO MEMORY BANKS TODO ??
      *
      * <p> Returns an int with the value of the byte stored in memory
      *     at address.
@@ -200,7 +246,7 @@ public class GBMem {
         } else if (address < 0x10000){
             return HRam[address - 0xff80];
         } else {
-            System.err.println("Ooops reading from invalid address");
+            System.err.println("Reading from invalid address");
             return -1; //oops something went wrong
         }
 
@@ -219,9 +265,6 @@ public class GBMem {
     public void writeByte(int address, int data) {
         //only store a byte in memory
         data &= 0xff;
-        if (address == 0xff01) {
-            //System.out.print((char)data);
-        }
 
         if (address < 0x8000) {
             memBank.writeByte(address, data);
@@ -273,11 +316,6 @@ public class GBMem {
         } else if (address == 0xff46) {
             DMATransfer(data);
         } else if (address == 0xff40) {
-            if (getScanLine() < 144) {
-                //System.out.println("writing 0x:" + Integer.toHexString(data));
-                //System.exit(0);
-                //data |= 0x80;
-            }
             IOPorts[newAddress] = data;
         } else {
             IOPorts[newAddress] = data;

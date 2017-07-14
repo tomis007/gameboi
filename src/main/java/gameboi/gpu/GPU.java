@@ -45,10 +45,10 @@ import java.nio.ByteBuffer;
  * @author tomis007
  */
 public class GPU {
-    private final BufferedImage screenDisplay;
-    private final LcdScreen lcdscreen;
+    //private final BufferedImage screenDisplay;
+    //private final LcdScreen lcdscreen;
     private final GBMem memory;
-    private boolean lcdDisplayEnabled;
+    //private boolean lcdDisplayEnabled;
     private ByteBuffer buffer;
     private final CPU cpu;
     /**
@@ -60,13 +60,16 @@ public class GPU {
 
     private int currentMode;
 
+    private static int BYTE_SAVE_LENGTH = 3;
+
     /**
      * GPU MODE
      * 2: Scanline (OAM) 80 cycles
      * 3: Scanline (VRAM) 172 cycles
      * 0: Horizontal Blank 204 cycles
      * 1: Vertical Blank 4560 cycles
-     */ 
+     */
+    //TODO ENUM?
     private static final int OAM_MODE = 2;
     private static final int LCD_TRANS = 3;
     private static final int HORIZ_BLANK = 0;
@@ -109,24 +112,30 @@ public class GPU {
     private static final int SPRITE_HEIGHT = 2;
 
 
-    public GPU(GBMem memory, CPU cpu, boolean showWindow) {
+    public GPU(GBMem memory, CPU cpu) {//, boolean showWindow) {
         this.memory = memory;
         this.cpu = cpu;
-        lcdDisplayEnabled = showWindow;
+        //lcdDisplayEnabled = showWindow;
         modeClock = 456;
         buffer = ByteBuffer.allocate(23040);
         prev_enabled = true;
         currentMode = OAM_MODE;
 
+        //TODO remove GUI aspects
+        //screenDisplay = null;
+        /*
         screenDisplay = new BufferedImage(160, 144, BufferedImage.TYPE_INT_ARGB);
         for (int i = 0; i < screenDisplay.getWidth(); ++i) {
             for (int j = 0; j < screenDisplay.getHeight(); ++j) {
                 screenDisplay.setRGB(i, j, 0xffffffff); // white
             }
         }
+        */
 
         this.memory.setScanLine(0);
-        lcdscreen = null;
+
+        //TODO remove GUI aspects
+        //lcdscreen = null;
        /*
         if (showWindow) {
             lcdscreen = new LcdScreen(screenDisplay);
@@ -176,14 +185,44 @@ public class GPU {
         }
     }
 
+
+    /**
+     * Save the state of the gpu to a byte array
+     * @return byte save data
+     */
+    public byte[] saveState() {
+        byte[] buf = new byte[BYTE_SAVE_LENGTH];
+        buf[0] = (byte)currentMode;
+        buf[1] = (byte)(modeClock & 0xff);
+        buf[2] = (byte)((modeClock >> 8) & 0xff);
+
+        return buf;
+    }
+
+
+    /**
+     * Load gpu state from byte array
+     *
+     * @param buf from saveState
+     */
+    public void loadState(byte[] buf) {
+        currentMode = Byte.toUnsignedInt(buf[0]);
+        modeClock = Byte.toUnsignedInt(buf[1]);
+        modeClock |= (Byte.toUnsignedInt(buf[2]) << 8);
+    }
+
+
+    public static int byteSaveLength() {
+        return BYTE_SAVE_LENGTH;
+    }
     /**
      *
      * draws current state to LCD screen
      *
      */
-    public void drawToLCD () {
+    /*public void drawToLCD () {
         lcdscreen.repaint();
-    }
+    }*/
 
     /**
      * copies the screen data into buffer
@@ -320,7 +359,6 @@ public class GPU {
                 lcd_trans();
                 return;
             default:
-                return;
         }
     }
     
@@ -440,11 +478,11 @@ public class GPU {
             if (wY <= yPos && xCoord >= wX && windowDrawn) {
                 break; //window will be drawn at this position
             } else {
-                if (lcdDisplayEnabled) {
-                    draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
-                } else {
+                //if (lcdDisplayEnabled) {
+                    //draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
+                //} else {
                     drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
-                }
+                //}
             }
         }
     }
@@ -536,11 +574,11 @@ public class GPU {
             int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
             int xCoord = (xPos + pixel);
             if (xCoord < 160 && yPos < 144 && xCoord >= 0 && yPos >= 0) {
-                if (lcdDisplayEnabled) {
-                    draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
-                } else {
+                //if (lcdDisplayEnabled) {
+                    //draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
+                //} else {
                     drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
-                }
+                //}
             }
         }
     }
@@ -640,19 +678,20 @@ public class GPU {
             int color = getColor(color_num, paletteAddress);
             if ((x + pix < 160) && (x + pix >= 0) && color_num != 0) {
                 if (hasPriority) {
-                    if (lcdDisplayEnabled) {
-                        draw_pix_lcdscreen(x + pix, scanline, color);
-                    } else {
+                    //if (lcdDisplayEnabled) {
+                        //draw_pix_lcdscreen(x + pix, scanline, color);
+                    //} else {
                         drawToBuffer(x + pix, scanline, color);
-                    }
+                    //}
                 } else {
-                    if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB(x + pix,scanline))
-                            || (!lcdDisplayEnabled && bufferToColor(x + pix, scanline) == getColor(0, 0xff47))) {
-                        if (lcdDisplayEnabled) {
-                            draw_pix_lcdscreen(x + pix, scanline, color);
-                        } else {
+                    if (bufferToColor(x + pix, scanline) == getColor(0, 0xff47)) {
+                    //if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB(x + pix,scanline))
+                            //|| (!lcdDisplayEnabled && bufferToColor(x + pix, scanline) == getColor(0, 0xff47))) {
+                        //if (lcdDisplayEnabled) {
+                            //draw_pix_lcdscreen(x + pix, scanline, color);
+                        //} else {
                             drawToBuffer(x + pix, scanline, color);
-                        }
+                        //}
                     }
                 }
             }
@@ -680,9 +719,9 @@ public class GPU {
         return colorNum;
     }
 
-    private void draw_pix_lcdscreen(int x, int y, int color) {
+    /*private void draw_pix_lcdscreen(int x, int y, int color) {
         screenDisplay.setRGB(x,y,color);
-    }
+    }*/
 
 
     /**

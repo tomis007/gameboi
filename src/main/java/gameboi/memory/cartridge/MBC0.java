@@ -58,9 +58,11 @@ public class MBC0 implements MemoryBank {
             rom[i] = romCartridge[i];
         }
 
+        /* TODO: This shouldn't be here?
         for (int i = 0xa000; i < romCartridge.length && i < 0xc000; ++i) {
             extRam[i - 0xa000] = romCartridge[i];
         }
+        */
 
     }
 

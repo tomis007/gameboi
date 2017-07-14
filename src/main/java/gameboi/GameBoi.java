@@ -31,9 +31,11 @@ import main.java.gameboi.joypad.JoyPad;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +51,17 @@ public class GameBoi {
     private Path current_rom;
     private JoyPad joypad;
 
+    //saving/loading info TODO Load from environment variables
+    private Path home;
+    private Path saves;
+    private Path roms;
+
+    //for saving state easy modifications
+    private static final int CPU_START_BYTE = 0;
+    private static final int CPU_LAST_BYTE = CPU_START_BYTE + CPU.byteSaveLength();
+    private static final int MEM_LAST_BYTE = CPU_LAST_BYTE + GBMem.byteSaveLength();
+    private static final int GPU_LAST_BYTE = MEM_LAST_BYTE + GPU.byteSaveLength();
+
     /**
      * runs the gameboi emulator locally
      * (not configured for server)
@@ -57,6 +70,14 @@ public class GameBoi {
      */
     public static void main(String[] argv) {
         //GameBoi gameboy = new GameBoi(selectRom());
+        GameBoi gb = new GameBoi();
+        gb.loadRom(Paths.get("/Users/thomas/stuff/tetris.gb"));
+        //gb.loadGame("test");
+        for (int i = 0; i < 200; ++i) {
+            gb.renderFrame();
+        }
+        //gb.loadGame("test");
+        //gb.saveGame("test");
 
         //Start the Gameboy fetch,decode,execute cycle
         //TODO Lets fix this...
@@ -71,8 +92,10 @@ public class GameBoi {
     public GameBoi(Path rom) {
         mem = new GBMem();
         z80 = new CPU(mem);
-        gpu = new GPU(mem, z80, true);
+        gpu = new GPU(mem, z80);
         mem.loadRom(rom);
+        current_rom = null;
+        makeHome();
     }
 
     /**
@@ -81,31 +104,91 @@ public class GameBoi {
     public GameBoi() {
         mem = new GBMem();
         z80 = new CPU(mem);
-        gpu = new GPU(mem, z80, false);
+        //gpu = new GPU(mem, z80, false);
+        gpu = new GPU(mem, z80);
         joypad = new JoyPad(z80, mem);
+        current_rom = null;
+        makeHome();
     }
 
     public void loadRom(Path rom) {
+        current_rom = rom;
         mem.loadRom(rom);
     }
 
+
     /**
-     * TODO
+     * creates gboi home directory if doesnt exist
+     *
+     *
+     * @return true on success, false on error
+     */
+    private boolean makeHome() {
+        String home_path = System.getProperty("user.home");
+        home_path += "/.GBoi";
+        try {
+            home = Files.createDirectories(Paths.get(home_path));
+            saves = Files.createDirectories(Paths.get(home_path + "/saves"));
+            roms = Files.createDirectories(Paths.get(home_path + "/roms"));
+        } catch(IOException e) {
+            System.err.print("error creating GBoi home directory");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * TODO ROM ID
      * saves current state of game
-     * to currentRomName_"fileName".gbsav
+     * to the current rom name "fileName".gbsav
      * @param fileName to add to end of current rom name
      *                 for save
      */
-    public void saveGame(String fileName) {
-        String saveName = current_rom.getFileName().toString() + fileName + ".gbsav";
+    public boolean saveGame(String fileName) {
+        String file_name;
+
+        if (current_rom != null) {
+            //TODO saving name convention
+            //file_name = current_rom.getFileName().toString() + fileName + ".gbs";
+            file_name = fileName + ".gbs";
+        } else {
+            file_name = "unknown.gbs";
+        }
+        file_name = saves.toString() + "/" + file_name;
+        System.out.println("saving as: " + file_name);
+
         try {
-            FileOutputStream fs = new FileOutputStream(saveName);
+            FileOutputStream fs = new FileOutputStream(file_name);
             fs.write(z80.saveState());
-            //fs.write(mem.saveState());
+            fs.write(mem.saveState());
+            fs.write(gpu.saveState());
             fs.close();
         } catch (IOException e) {
-            System.err.println("SAVING FAILED: " + fileName);
+            System.err.println("SAVING FAILED: " + fileName + e.getLocalizedMessage());
+            return false;
         }
+        return true;
+    }
+
+    /**
+     *
+     * TODO name saving convention, INDEX OUT OF RANGE!!!
+     *
+     * @param name filename of file in .Gboi home directory
+     * @return true on success, false on failure
+     */
+    public boolean loadGame(String name) {
+        String file_path = saves.toString() + "/" + name + ".gbs";
+        try {
+            byte[] saveData = Files.readAllBytes(new File(file_path).toPath());
+            z80.loadState(Arrays.copyOfRange(saveData, CPU_START_BYTE, CPU_LAST_BYTE));
+            mem.loadState(Arrays.copyOfRange(saveData, CPU_LAST_BYTE, MEM_LAST_BYTE));
+            gpu.loadState(Arrays.copyOfRange(saveData, MEM_LAST_BYTE, GPU_LAST_BYTE));
+        } catch(IOException e) {
+            System.err.println("FAILED TO LOAD: " + file_path + " " + e.getLocalizedMessage());
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -134,10 +217,25 @@ public class GameBoi {
      * draws the frame into buffer
      * @param buffer to draw frame into
      *               must be 23040 long
-     *
      */
     public void drawFrameToBuffer(ByteBuffer buffer) {
         renderFrame();
+        gpu.drawBuffer(buffer);
+    }
+
+
+    /**
+     * advances gameboy state one frame
+     * draws the frame into buffer
+     * @param buffer to draw frame into
+     *               must be 23040 long
+     * @param count number of frames to render without drawing
+     *              Default: 0
+     */
+    public void drawFrameToBuffer(ByteBuffer buffer, int count) {
+        for (int i = 0; i < count + 1; ++i) {
+            renderFrame();
+        }
         gpu.drawBuffer(buffer);
     }
 
@@ -146,7 +244,7 @@ public class GameBoi {
      * draws the frame onto the screen
      */
     private void renderFrame() {
-        int count = 0, cycles;
+        int count = 0, cycles = 0;
         while (count < 70244) {
             cycles = z80.ExecuteOpcode();
             gpu.updateGraphics(cycles);
@@ -157,9 +255,9 @@ public class GameBoi {
     /**
      * draws to the LCD Screen
      */
-    public void drawToLCD() {
+    private void drawToLCD() {
         renderFrame();
-        gpu.drawToLCD();
+        //gpu.drawToLCD();
     }
 
 
