@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 tomis007.
+ * Copyright 2017 tomis007.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,26 +22,26 @@
  * THE SOFTWARE.
  */
 package main.java.gameboi;
+
 import main.java.gameboi.cpu.CPU;
 import main.java.gameboi.gpu.GPU;
 import main.java.gameboi.memory.GBMem;
-import main.java.gameboi.userinterface.FileSelector;
 import main.java.gameboi.joypad.JoyPad;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 /**
- *
+ * TODO Better error handling
  * @author tomis007
  */
 public class GameBoi {
@@ -52,11 +52,11 @@ public class GameBoi {
     private JoyPad joypad;
 
     //saving/loading info TODO Load from environment variables
-    private Path home;
-    private Path saves;
-    private Path roms;
+    private static Path home = null;
+    private static Path saves = null;
+    private static Path roms = null;
 
-    //for saving state easy modifications
+    //for saving state
     private static final int CPU_START_BYTE = 0;
     private static final int CPU_LAST_BYTE = CPU_START_BYTE + CPU.byteSaveLength();
     private static final int MEM_LAST_BYTE = CPU_LAST_BYTE + GBMem.byteSaveLength();
@@ -71,14 +71,19 @@ public class GameBoi {
     public static void main(String[] argv) {
         //GameBoi gameboy = new GameBoi(selectRom());
         GameBoi gb = new GameBoi();
-        gb.loadRom(Paths.get("/Users/thomas/stuff/tetris.gb"));
-        //gb.loadGame("test");
+        //gb.loadRom(Paths.get("/Users/thomas/stuff/tetris.gb"));
+        gb.loadGame("test");
         for (int i = 0; i < 200; ++i) {
             gb.renderFrame();
         }
+        System.out.println(gb.getRoms().toString());
+        System.out.println(gb.getSaves().toString());
         //gb.loadGame("test");
         //gb.saveGame("test");
 
+        //for (int i = 0; i < 200; ++i) {
+            //gb.renderFrame();
+        //}
         //Start the Gameboy fetch,decode,execute cycle
         //TODO Lets fix this...
         //ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
@@ -95,20 +100,25 @@ public class GameBoi {
         gpu = new GPU(mem, z80);
         mem.loadRom(rom);
         current_rom = null;
-        makeHome();
+        if (home == null || roms == null || saves == null) {
+            makeHome();
+        }
     }
 
     /**
-     * server constructor
+     * Creates a GameBoi object
+     *
+     * If makeHome has not been called, calls it
      */
     public GameBoi() {
         mem = new GBMem();
         z80 = new CPU(mem);
-        //gpu = new GPU(mem, z80, false);
         gpu = new GPU(mem, z80);
         joypad = new JoyPad(z80, mem);
         current_rom = null;
-        makeHome();
+        if (home == null || roms == null || saves == null) {
+            makeHome();
+        }
     }
 
     public void loadRom(Path rom) {
@@ -116,14 +126,13 @@ public class GameBoi {
         mem.loadRom(rom);
     }
 
-
     /**
      * creates gboi home directory if doesnt exist
      *
      *
      * @return true on success, false on error
      */
-    private boolean makeHome() {
+    public static boolean makeHome() {
         String home_path = System.getProperty("user.home");
         home_path += "/.GBoi";
         try {
@@ -138,53 +147,94 @@ public class GameBoi {
     }
 
     /**
-     * TODO ROM ID
      * saves current state of game
-     * to the current rom name "fileName".gbsav
-     * @param fileName to add to end of current rom name
-     *                 for save
+     * to the current rom name "fileName".gbs in the
+     * {home | .GBoi}/saves/ directory
+     * @param fileName to save as
      */
     public boolean saveGame(String fileName) {
-        String file_name;
-
-        if (current_rom != null) {
-            //TODO saving name convention
-            //file_name = current_rom.getFileName().toString() + fileName + ".gbs";
-            file_name = fileName + ".gbs";
-        } else {
-            file_name = "unknown.gbs";
+        String saveName;
+        if (current_rom == null) {
+            System.err.println("Unable to save, no rom loaded");
+            return false;
         }
-        file_name = saves.toString() + "/" + file_name;
-        System.out.println("saving as: " + file_name);
 
+        saveName = saves.toString() + "/" + fileName + ".gbs";
         try {
-            FileOutputStream fs = new FileOutputStream(file_name);
+            FileOutputStream fs = new FileOutputStream(saveName);
             fs.write(z80.saveState());
             fs.write(mem.saveState());
             fs.write(gpu.saveState());
+            fs.write(getCurrentRomName());
             fs.close();
         } catch (IOException e) {
-            System.err.println("SAVING FAILED: " + fileName + e.getLocalizedMessage());
+            System.err.println("SAVING FAILED: " + saveName + e.getLocalizedMessage());
             return false;
         }
         return true;
     }
 
     /**
+     * Converts the current rom to a byte array
      *
-     * TODO name saving convention, INDEX OUT OF RANGE!!!
+     * @return byte array of current rom name
+     */
+    private byte[] getCurrentRomName() {
+        byte[] romName;
+        byte[] buf;
+        try {
+            romName = current_rom.getFileName().toString().getBytes("UTF-8");
+        } catch(UnsupportedEncodingException | NullPointerException e) {
+            System.err.println("UTF-8 Not supported, resorting to default " + e.getLocalizedMessage());
+            romName = "unknown".getBytes();
+        }
+        buf = new byte[romName.length];
+
+        System.arraycopy(romName, 0, buf, 0, romName.length);
+
+        return buf;
+    }
+
+    /**
+     * TODO: What if rom isnt there?
+     * Converts the saved RomName from byte array to Path object
      *
-     * @param name filename of file in .Gboi home directory
+     * @param buf the bytes saved into the gbs save
+     * @return Path to the rom
+     */
+    private Path getSavedRomPath(byte[] buf) {
+        String romName;
+        try {
+            romName = new String(buf, "UTF-8");
+        } catch(UnsupportedEncodingException e) {
+            System.err.println("UTF-8 not supported, resorting to default");
+            romName = "unknown";
+        }
+
+        return Paths.get(roms.toString() + "/" + romName);
+    }
+
+    /**
+     * Loads a game save from ~/.GBoi/saves directory (home/saves)
+     * Saves have to end in ".gbs"
+     *
+     * @param name filename of file in ~/.GBoi/saves directory
      * @return true on success, false on failure
      */
     public boolean loadGame(String name) {
-        String file_path = saves.toString() + "/" + name + ".gbs";
+        if (!name.endsWith(".gbs")) {
+            name += ".gbs";
+        }
+        String file_path = saves.toString() + "/" + name;
         try {
             byte[] saveData = Files.readAllBytes(new File(file_path).toPath());
+            //load the ROM into memory first
+            loadRom(getSavedRomPath(Arrays.copyOfRange(saveData, GPU_LAST_BYTE, saveData.length)));
+            //Load the state of ROM
             z80.loadState(Arrays.copyOfRange(saveData, CPU_START_BYTE, CPU_LAST_BYTE));
             mem.loadState(Arrays.copyOfRange(saveData, CPU_LAST_BYTE, MEM_LAST_BYTE));
             gpu.loadState(Arrays.copyOfRange(saveData, MEM_LAST_BYTE, GPU_LAST_BYTE));
-        } catch(IOException e) {
+        } catch(IOException | IndexOutOfBoundsException e) {
             System.err.println("FAILED TO LOAD: " + file_path + " " + e.getLocalizedMessage());
             return false;
         }
@@ -206,10 +256,6 @@ public class GameBoi {
      */
     public void keyReleased(int key_num) {
         joypad.keyReleased(key_num);
-    }
-
-    public int getJoyPadState() {
-        return mem.getJoyPadState();
     }
 
     /**
@@ -239,6 +285,56 @@ public class GameBoi {
         gpu.drawBuffer(buffer);
     }
 
+
+    /**
+     * gets all files in dir with endings that are in a
+     * List of file endings
+     *
+     *
+     * @param dir to get files in
+     * @param fileExt List<String> of file names to accept
+     * @return
+     */
+    private List<String> getFiles(Path dir, List<String> fileExt) {
+        List<String> fileList = new ArrayList<>();
+        String[] folderContents = dir.toFile().list();
+        if (folderContents == null) {
+            return null;
+        }
+        for (String file : folderContents) {
+            for (String ext : fileExt) {
+                if (file.endsWith(ext)) {
+                    fileList.add(file);
+                }
+            }
+        }
+        return fileList;
+    }
+
+    /**
+     *
+     * Get the current rom files
+     *
+     * @return A List of Roms in the rom directory
+     */
+    public List<String> getRoms() {
+        List<String> endings = new ArrayList<>();
+        endings.add(".gb");
+        return getFiles(roms, endings);
+    }
+
+    /**
+     *
+     * Get the current saves
+     *
+     * @return List of save names in the save save directory
+     */
+    public List<String> getSaves() {
+        List<String> endings = new ArrayList<>();
+        endings.add(".gbs");
+        return getFiles(saves, endings);
+    }
+
     /**
      * advances gameboy state one frame
      * draws the frame onto the screen
@@ -250,42 +346,6 @@ public class GameBoi {
             gpu.updateGraphics(cycles);
             count += cycles;
         }
-    }
-
-    /**
-     * draws to the LCD Screen
-     */
-    private void drawToLCD() {
-        renderFrame();
-        //gpu.drawToLCD();
-    }
-
-
-    /**
-     * gets Path object to a Rom with a simple GUI
-     *
-     * @return Path to selected rom
-     */
-    private static Path selectRom() {
-        FileSelector fc = new FileSelector(System.getProperty("user.dir"));
-
-        File rom = fc.selectFile();
-        if (rom == null) {
-            System.err.println("Sorry, please select a ROM");
-            System.exit(1);
-        }
-
-        return rom.toPath();
-    }
-
-    /**
-     * starts the executor executing drawFrame at correct gameboy FPS
-     * @param gameboy to start
-     * @param executor to use
-     */
-    private static void startGameBoi(GameBoi gameboy, ScheduledExecutorService executor) {
-            //update at correct clock frequency
-            executor.scheduleAtFixedRate(() -> gameboy.drawToLCD(), 0, 16, TimeUnit.MILLISECONDS);
     }
 }
 
