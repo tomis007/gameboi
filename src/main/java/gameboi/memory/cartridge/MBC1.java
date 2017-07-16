@@ -152,4 +152,12 @@ public class MBC1 implements MemoryBank {
             System.err.println("invalid write to MBC Registers");
         }
     }
+
+    public void loadState(byte[] buf) {
+
+    }
+
+    public byte[] saveState() {
+        return new byte[10];
+    }
 }

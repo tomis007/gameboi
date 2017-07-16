@@ -24,6 +24,7 @@
 package main.java.gameboi.memory.cartridge;
 
 import java.time.LocalDateTime;
+import main.java.gameboi.memory.MemCopyUtil;
 
 /**
  *
@@ -51,6 +52,7 @@ public class MBC3 implements MemoryBank {
     private int rtc_DL;
     private int rtc_DH;
 
+    private static final int STATE_LEN = 4;
     private static final int ROM_BANK_SIZE = 0x4000;
     private static final int RAM_BANK_SIZE = 0x2000;
 
@@ -59,29 +61,34 @@ public class MBC3 implements MemoryBank {
     public MBC3(int[] cartridge) {
         romBanks = new int[cartridge.length];
         System.arraycopy(cartridge, 0, romBanks, 0, cartridge.length);
-
-        switch (cartridge[0x149]) {
-            case 0:
-                ramBanks = null;
-                break;
-            case 1:
-                ramBanks = new int[0x800];
-                break;
-            case 2:
-                ramBanks = new int[0x2000];
-                break;
-            case 3:
-                ramBanks = new int [0x8000];
-                break;
-            default:
-                System.err.println("invalid ram bank size");
-                System.exit(1);
-        }
-
+        ramBanks = initRamBank(cartridge[0x149]);
         currentRomBank = 1;
         currentRamBank = 0;
         rtcEnabled = false;
         latchOnOne = false;
+    }
+
+    private int[] initRamBank(int bankInfo) {
+        int[] bank;
+        switch (bankInfo) {
+            case 0:
+                bank = null;
+                break;
+            case 1:
+                bank = new int[0x800];
+                break;
+            case 2:
+                bank = new int[0x2000];
+                break;
+            case 3:
+                bank = new int[0x8000];
+                break;
+            default:
+                System.err.println("invalid ram bank size, MBC3 INIT");
+                System.err.println("will probably crash soon");
+                bank = new int[0x800];
+        }
+        return bank;
     }
 
     /**
@@ -106,7 +113,6 @@ public class MBC3 implements MemoryBank {
             }
         } else {
             System.err.println("invalid read from MBC1: 0x" + Integer.toHexString(address));
-            return -1;
         }
         return -1;
     }
@@ -182,6 +188,22 @@ public class MBC3 implements MemoryBank {
     }
 
 
+    public void loadState(byte[] buf) {
+        ramBanks = initRamBank(romBanks[0x149]);
+        MemCopyUtil.copyArray(buf, 0, ramBanks, 0, ramBanks.length);
+        currentRamBank = Byte.toUnsignedInt(buf[ramBanks.length]);
+        currentRomBank = Byte.toUnsignedInt(buf[ramBanks.length + 1]);
+        ramEnabled = Byte.toUnsignedInt(buf[ramBanks.length + 2]) == 1;
+    }
+
+    public byte[] saveState() {
+        byte[] state = new byte[ramBanks.length + STATE_LEN];
+        MemCopyUtil.copyArray(ramBanks, 0, state, 0, ramBanks.length);
+        state[ramBanks.length] = (byte)(currentRamBank & 0xff);
+        state[ramBanks.length + 1] = (byte)(currentRomBank & 0xff);
+        state[ramBanks.length + 2] = (byte)(ramEnabled ? 1 : 0);
+        return state;
+    }
 
     private void latchClock(int data) {
         if (data == 0x0) {

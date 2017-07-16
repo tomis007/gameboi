@@ -103,4 +103,14 @@ public class MBC0 implements MemoryBank {
         }
     }
 
+    //TODO
+    public byte[] saveState() {
+        return new byte[10];
+    }
+
+    //TODO
+    public void loadState(byte[] buf) {
+        //nothing to do
+    }
+
 }

@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.io.IOException;
 import java.util.Arrays;
+import main.java.gameboi.memory.MemCopyUtil;
 
 /**
  * Represents the memory of the gameboy
@@ -62,7 +63,9 @@ public class GBMem {
 
 
     //saving byte size info
-    private static final int BYTE_SAVE_LENGTH = 0x41a1;
+
+    private static final int RAM_SAVE_LEN = MemBanks.getByteSaveSize();
+    private static final int BYTE_SAVE_LENGTH = 0x41a1 + RAM_SAVE_LEN;
 
     /**
      * KEY 7 - SELECT
@@ -123,11 +126,12 @@ public class GBMem {
      */
     public byte[] saveState() {
         byte[] save = new byte[BYTE_SAVE_LENGTH];
-        copyArray(vRam, 0, save, 0, 0x2000);
-        copyArray(wRam, 0, save, 0x2000, 0x2000);
-        copyArray(OAMTable, 0, save, 0x4000, 0xa0);
-        copyArray(IOPorts, 0, save, 0x40a0, 0x80);
-        copyArray(HRam, 0, save, 0x4120, 0x80);
+        MemCopyUtil.copyArray(vRam, 0, save, 0, 0x2000);
+        MemCopyUtil.copyArray(wRam, 0, save, 0x2000, 0x2000);
+        MemCopyUtil.copyArray(OAMTable, 0, save, 0x4000, 0xa0);
+        MemCopyUtil.copyArray(IOPorts, 0, save, 0x40a0, 0x80);
+        MemCopyUtil.copyArray(HRam, 0, save, 0x4120, 0x80);
+        System.arraycopy(memBank.saveState(), 0, save, 0x41a0, RAM_SAVE_LEN);
         save[BYTE_SAVE_LENGTH - 1] = (byte)(joyPadState & 0xff);
         return save;
     }
@@ -139,44 +143,17 @@ public class GBMem {
      *
      */
     public void loadState(byte[] save) {
-        copyArray(save, 0, vRam, 0, 0x2000);
-        copyArray(save, 0x2000, wRam, 0, 0x2000);
-        copyArray(save, 0x4000, OAMTable, 0, 0xa0);
-        copyArray(save, 0x40a0, IOPorts, 0, 0x80);
-        copyArray(save, 0x4120, HRam, 0, 0x80);
+        MemCopyUtil.copyArray(save, 0, vRam, 0, 0x2000);
+        MemCopyUtil.copyArray(save, 0x2000, wRam, 0, 0x2000);
+        MemCopyUtil.copyArray(save, 0x4000, OAMTable, 0, 0xa0);
+        MemCopyUtil.copyArray(save, 0x40a0, IOPorts, 0, 0x80);
+        MemCopyUtil.copyArray(save, 0x4120, HRam, 0, 0x80);
+        byte[] ram = new byte[RAM_SAVE_LEN];
+        System.arraycopy(save, 0x41a0, ram, 0, RAM_SAVE_LEN);
+        memBank.loadState(ram);
         joyPadState = Byte.toUnsignedInt(save[BYTE_SAVE_LENGTH - 1]);
     }
 
-
-    /**
-     * Overloaded copyArray for saving
-     *
-     * @param src array
-     * @param srcPos initial position
-     * @param dst byte destination array
-     * @param dstPos initial pos
-     * @param len len of items to copy
-     */
-    private void copyArray(int[] src, int srcPos, byte[] dst, int dstPos, int len) {
-        for (int i = 0; i < len; ++i) {
-            dst[i + dstPos] = (byte)(src[i + srcPos] & 0xff);
-        }
-
-    }
-
-    /**
-     * Overloaded copyArray for saving
-     * @param src byte array
-     * @param srcPos initial pos
-     * @param dst int destination
-     * @param dstPos initial pos
-     * @param len len of items to copy
-     */
-    private void copyArray(byte[] src, int srcPos, int[] dst, int dstPos, int len) {
-        for (int i = 0; i < len; ++i) {
-            dst[dstPos + i] = Byte.toUnsignedInt(src[i + srcPos]);
-        }
-    }
 
     /**
      * The length of the save byte state array
@@ -240,13 +217,14 @@ public class GBMem {
         } else if (address < 0xfea0) {
             return OAMTable[address - 0xfe00];
         } else if (address < 0xff00) {
+            System.err.println("Tried to read from invalid address: " + Integer.toHexString(address));
             return -1; // can't use this area
         } else if (address < 0xff80){
             return IOPorts[address - 0xff00];
         } else if (address < 0x10000){
             return HRam[address - 0xff80];
         } else {
-            System.err.println("Reading from invalid address");
+            System.err.println("Reading from invalid address: " + Integer.toHexString(address));
             return -1; //oops something went wrong
         }
 

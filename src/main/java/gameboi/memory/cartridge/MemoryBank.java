@@ -49,6 +49,22 @@ public interface MemoryBank {
      */
     void writeByte(int address, int data);
 
+    /**
+     *  save the memory bank state
+     *
+     *
+     * @return to save to
+     */
+    byte[] saveState();
+
+    /**
+     *  load the memory bank state
+     *
+     *
+     * @param buf to load from
+     */
+    void loadState(byte[] buf);
+
 
 
 }

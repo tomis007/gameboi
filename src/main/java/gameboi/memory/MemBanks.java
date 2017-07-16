@@ -39,6 +39,8 @@ import main.java.gameboi.memory.cartridge.MemoryBank;
  */
 public class MemBanks {
     private MemoryBank memBank;
+    //largest of supported membanks, and additional info
+    private static final int BYTE_SAVE_SIZE = 0x8010;
     
     /**
      * Constructor for RomMemBank
@@ -51,7 +53,6 @@ public class MemBanks {
      * 
      */ 
     public MemBanks(int[] romCartridge) {
-        System.out.println(Integer.toHexString(romCartridge[0x147]));
         switch(romCartridge[0x147]) {
             case 0x0:
                 memBank = new MBC0(romCartridge);
@@ -109,6 +110,27 @@ public class MemBanks {
      */
     public void writeByte(int address, int data) {
         memBank.writeByte(address, data);
+    }
+
+    public byte[] saveState() {
+        byte[] buf = new byte[BYTE_SAVE_SIZE];
+        byte[] save = memBank.saveState();
+        System.arraycopy(save, 0, buf, 0, save.length);
+        return buf;
+    }
+
+    public void loadState(byte[] buf) {
+        memBank.loadState(buf);
+    }
+
+    /**
+     *
+     * Get the size of this objects save state buffer
+     *
+     * @return int size of byte save buffer
+     */
+    public static int getByteSaveSize() {
+        return BYTE_SAVE_SIZE;
     }
 
 }
