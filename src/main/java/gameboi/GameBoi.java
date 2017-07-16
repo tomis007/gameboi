@@ -71,23 +71,14 @@ public class GameBoi {
     public static void main(String[] argv) {
         //GameBoi gameboy = new GameBoi(selectRom());
         GameBoi gb = new GameBoi();
+        //gb.loadSave("pokemon");
+
         //gb.loadRom(Paths.get("/Users/thomas/stuff/tetris.gb"));
-        gb.loadGame("test");
-        for (int i = 0; i < 200; ++i) {
+        //gb.loadGame("test");
+        for (int i = 0; i < 2000; ++i) {
             gb.renderFrame();
         }
-        System.out.println(gb.getRoms().toString());
-        System.out.println(gb.getSaves().toString());
-        //gb.loadGame("test");
-        //gb.saveGame("test");
-
-        //for (int i = 0; i < 200; ++i) {
-            //gb.renderFrame();
-        //}
-        //Start the Gameboy fetch,decode,execute cycle
-        //TODO Lets fix this...
-        //ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        //startGameBoi(gameboy, executor);
+        //gb.saveGame("pokemon");
     }
 
     /**
@@ -121,9 +112,41 @@ public class GameBoi {
         }
     }
 
+    /**
+     * loads a rom based on path
+     *
+     * @param rom
+     */
     public void loadRom(Path rom) {
         current_rom = rom;
         mem.loadRom(rom);
+    }
+
+    /**
+     *  Loads a rom from the /save file
+     *
+     * @param rom String - name of rom to load
+     */
+    public boolean loadRom(String rom) {
+        if (!rom.endsWith(".gb")) {
+            rom += ".gb";
+        }
+        File romFile = new File(roms.toString() + "/" + rom);
+        if (romFile.isFile()) {
+            loadRom(romFile.toPath());
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     *
+     * Get the home path of a GameBoi
+     *
+     * @return Path object to GameBoi home
+     */
+    public Path getHome(){
+        return home;
     }
 
     /**
@@ -154,12 +177,15 @@ public class GameBoi {
      */
     public boolean saveGame(String fileName) {
         String saveName;
+        if (!fileName.endsWith(".gbs")) {
+            fileName += ".gbs";
+        }
         if (current_rom == null) {
             System.err.println("Unable to save, no rom loaded");
             return false;
         }
 
-        saveName = saves.toString() + "/" + fileName + ".gbs";
+        saveName = saves.toString() + "/" + fileName;
         try {
             FileOutputStream fs = new FileOutputStream(saveName);
             fs.write(z80.saveState());
@@ -221,7 +247,7 @@ public class GameBoi {
      * @param name filename of file in ~/.GBoi/saves directory
      * @return true on success, false on failure
      */
-    public boolean loadGame(String name) {
+    public boolean loadSave(String name) {
         if (!name.endsWith(".gbs")) {
             name += ".gbs";
         }
