@@ -135,6 +135,7 @@ public class CPU {
         buf[14] = (byte)(divideCounter & 0xff);
         buf[15] = (byte)((divideCounter & 0xff00) >> 8);
         buf[16] = interruptStateToByte();
+        dumpRegisters(0x0);
         return buf;
     }
 
@@ -204,6 +205,7 @@ public class CPU {
         divideCounter = Byte.toUnsignedInt(save[14]);
         divideCounter |= Byte.toUnsignedInt(save[15]);
         setInterruptStateFromByte(save[16]);
+        dumpRegisters(0x0);
     }
 
 
@@ -578,7 +580,7 @@ public class CPU {
                 System.err.println("Unimplemented opcode: 0x" + 
                         Integer.toHexString(opcode));
                 System.err.println("pc: 0x" + Integer.toHexString(pc));
-                System.exit(1);
+                System.exit(1); //TODO DONT
         }
         return 0;
     }
