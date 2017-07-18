@@ -23,20 +23,23 @@
  */
 package main.java.gameboi.memory.cartridge;
 
+import main.java.gameboi.memory.MemCopyUtil;
+
 /**
  *
  * Implementation of MBC1 cartridge chip
- * TODO: RAM ENABLING, occasional crashes
+ *
  * tomis007
  */
 public class MBC1 implements MemoryBank {
 
     private int[] romBanks;
-    private int currentRomBank;
-    private int currentRamBank;
+    private int currentROmBank;
+    private int currentRAmBank;
     private int[] ramBanks;
     private boolean ramEnabled;
     private mode currentMode;
+    private static final int STATE_LEN = 4;
 
 
     private static final int ROM_BANK_SIZE = 0x4000;
@@ -45,35 +48,54 @@ public class MBC1 implements MemoryBank {
     private static final mode RAM = mode.RAM;
 
 
-    private enum mode {ROM, RAM};
+    private enum mode {ROM, RAM}
 
 
+    /**
+     * MBC1 Constructor
+     * MBC1 Memory controller
+     * @param cartridge ROM to initialize from
+     */
     public MBC1(int[] cartridge) {
         romBanks = new int[cartridge.length];
         System.arraycopy(cartridge, 0, romBanks, 0, cartridge.length);
+        ramBanks = initRamBank(cartridge[0x149]);
+        currentROmBank = 1;
+        currentRAmBank = 0;
+        currentMode = ROM;
+    }
 
-        switch (cartridge[0x149]) {
+
+    /**
+     * create a RamBank of the correct size based on
+     * rom's value at 0x149
+     *
+     * @param bankInfo cartridge byte at 0x149
+     * @return int[] of appropriate rambank size
+     */
+    private int[] initRamBank(int bankInfo) {
+        int[] bank;
+        switch(bankInfo) {
             case 0:
-                ramBanks = null;
+                bank = null;
                 break;
             case 1:
-                ramBanks = new int[0x800];
+                bank = new int[0x800];
                 break;
             case 2:
-                ramBanks = new int[0x2000];
+                bank = new int[0x2000];
                 break;
             case 3:
-                ramBanks = new int [0x8000];
+                bank = new int[0x8000];
                 break;
             default:
                 System.err.println("invalid ram bank size");
-                System.exit(1);
+                System.err.println("MBC1 INIT: will probably crash soon");
+                bank = new int[0x800];
         }
-
-        currentRomBank = 1;
-        currentRamBank = 0;
-        currentMode = ROM;
+        return bank;
     }
+
 
     /**
      * Read a byte from MBC1
@@ -88,15 +110,15 @@ public class MBC1 implements MemoryBank {
         } else if (address < 0x8000){
             address -= 0x4000;
             if (currentMode == ROM) {
-                return romBanks[address + (currentRomBank * ROM_BANK_SIZE)];
+                return romBanks[address + (currentROmBank * ROM_BANK_SIZE)];
             } else {
-                return romBanks[address + ((currentRomBank & 0x1f) * ROM_BANK_SIZE)];
+                return romBanks[address + ((currentROmBank & 0x1f) * ROM_BANK_SIZE)];
             }
         } else if ((address >= 0xa000 && address < 0xc000) && ramEnabled) {
             if (currentMode == ROM) {
                 return ramBanks[address - 0xa000];
             } else {
-                return ramBanks[(address - 0xa000) + (currentRamBank * RAM_BANK_SIZE)];
+                return ramBanks[(address - 0xa000) + (currentRAmBank * RAM_BANK_SIZE)];
             }
         } else {
             System.err.println("invalid read from MBC1: 0x" + Integer.toHexString(address));
@@ -119,7 +141,7 @@ public class MBC1 implements MemoryBank {
             if (currentMode == ROM) {
                 ramBanks[address - 0xa000] = data & 0xff;
             } else {
-                ramBanks[(address - 0xa000) + (currentRamBank * RAM_BANK_SIZE)] = data & 0xff;
+                ramBanks[(address - 0xa000) + (currentRAmBank * RAM_BANK_SIZE)] = data & 0xff;
             }
         }
     }
@@ -140,12 +162,12 @@ public class MBC1 implements MemoryBank {
             ramEnabled = ((data & 0xf) == 0xa);
         } else if (address < 0x4000) {
             data &= 0x1f;
-            currentRomBank = (currentRomBank & 0x60) + data;
-            currentRomBank += (currentRomBank == 0) ? 1 : 0;
+            currentROmBank = (currentROmBank & 0x60) + data;
+            currentROmBank += (currentROmBank == 0) ? 1 : 0;
         } else if (address < 0x6000) {
             data &= 0x3;
-            currentRomBank &= ((data << 5) | 0x1f);
-            currentRamBank = data;
+            currentROmBank &= ((data << 5) | 0x1f);
+            currentRAmBank = data;
         } else if (address < 0x8000){
             currentMode = ((data & 0x1) == 1) ? RAM : ROM;
         } else {
@@ -153,11 +175,32 @@ public class MBC1 implements MemoryBank {
         }
     }
 
+    /**
+     *
+     *
+     * @param buf to load from
+     */
     public void loadState(byte[] buf) {
-
+        ramBanks = initRamBank(romBanks[0x149]);
+        MemCopyUtil.copyArray(buf, 0, ramBanks, 0, ramBanks.length);
+        currentRAmBank = Byte.toUnsignedInt(buf[ramBanks.length]);
+        currentROmBank = Byte.toUnsignedInt(buf[ramBanks.length + 1]);
+        ramEnabled = Byte.toUnsignedInt(buf[ramBanks.length + 2]) == 1;
+        currentMode = Byte.toUnsignedInt(buf[ramBanks.length + 3]) == 1 ? ROM : RAM;
     }
 
+    /**
+     * Save the state for MBC1
+     *
+     * @return state saved in byte[] array
+     */
     public byte[] saveState() {
-        return new byte[10];
+        byte[] state = new byte[ramBanks.length + STATE_LEN];
+        MemCopyUtil.copyArray(ramBanks, 0, state, 0, ramBanks.length);
+        state[ramBanks.length] = (byte)(currentRAmBank & 0xff);
+        state[ramBanks.length + 1] = (byte)(currentROmBank & 0xff);
+        state[ramBanks.length + 2] = (byte)(ramEnabled ? 1 : 0);
+        state[ramBanks.length + 3] = (byte)(currentMode == ROM ? 1 : 0);
+        return state;
     }
 }
