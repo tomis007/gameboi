@@ -30,14 +30,15 @@ import main.java.gameboi.memory.MemCopyUtil;
  *
  * Implementation of MBC3 hardware in cartridge
  *
- * TODO: real time clock support
+ * TODO: real time clock support, should probably be
+ * functional without it
  * tomis007
  */
 public class MBC3 implements MemoryBank {
 
     private int[] romBanks;
-    private int currentRomBank;
-    private int currentRamBank;
+    private int currentROmBank;
+    private int currentRAmBank;
     private int[] ramBanks;
     private boolean ramEnabled;
 
@@ -62,8 +63,8 @@ public class MBC3 implements MemoryBank {
         romBanks = new int[cartridge.length];
         System.arraycopy(cartridge, 0, romBanks, 0, cartridge.length);
         ramBanks = initRamBank(cartridge[0x149]);
-        currentRomBank = 1;
-        currentRamBank = 0;
+        currentROmBank = 1;
+        currentRAmBank = 0;
         rtcEnabled = false;
         latchOnOne = false;
     }
@@ -104,12 +105,12 @@ public class MBC3 implements MemoryBank {
             return romBanks[address];
         } else if (address < 0x8000) {
             address -= 0x4000;
-            return romBanks[address + (currentRomBank * ROM_BANK_SIZE)];
+            return romBanks[address + (currentROmBank * ROM_BANK_SIZE)];
         } else if (address >= 0xa000 && address < 0xc000) {
             if (rtcEnabled && address == 0xa000) {
                 return mappedRTCReg;
             } else if (ramEnabled) {
-                return ramBanks[(address - 0xa000) + (currentRamBank * RAM_BANK_SIZE)];
+                return ramBanks[(address - 0xa000) + (currentRAmBank * RAM_BANK_SIZE)];
             }
         } else {
             System.err.println("invalid read from MBC1: 0x" + Integer.toHexString(address));
@@ -129,7 +130,7 @@ public class MBC3 implements MemoryBank {
         if (address < 0x8000) {
             updateMBCRegisters(address, data);
         } else if (ramEnabled) {
-            ramBanks[(address - 0xa000) + (currentRamBank * RAM_BANK_SIZE)] = data & 0xff;
+            ramBanks[(address - 0xa000) + (currentRAmBank * RAM_BANK_SIZE)] = data & 0xff;
         }
     }
 
@@ -149,10 +150,10 @@ public class MBC3 implements MemoryBank {
             ramEnabled = rtcEnabled = ((data & 0xf) == 0xa);
         } else if (address < 0x4000) {
             data &= 0x7f;
-            currentRomBank = (data == 0) ? 1 : data;
+            currentROmBank = (data == 0) ? 1 : data;
         } else if (address < 0x6000) {
             if (data >= 0 && data <= 3) {
-                currentRamBank = data;
+                currentRAmBank = data;
             } else if (address >= 0x8 && address <= 0xc) {
 //                writeRTCData(data);
             }
@@ -191,16 +192,16 @@ public class MBC3 implements MemoryBank {
     public void loadState(byte[] buf) {
         ramBanks = initRamBank(romBanks[0x149]);
         MemCopyUtil.copyArray(buf, 0, ramBanks, 0, ramBanks.length);
-        currentRamBank = Byte.toUnsignedInt(buf[ramBanks.length]);
-        currentRomBank = Byte.toUnsignedInt(buf[ramBanks.length + 1]);
+        currentRAmBank = Byte.toUnsignedInt(buf[ramBanks.length]);
+        currentROmBank = Byte.toUnsignedInt(buf[ramBanks.length + 1]);
         ramEnabled = Byte.toUnsignedInt(buf[ramBanks.length + 2]) == 1;
     }
 
     public byte[] saveState() {
         byte[] state = new byte[ramBanks.length + STATE_LEN];
         MemCopyUtil.copyArray(ramBanks, 0, state, 0, ramBanks.length);
-        state[ramBanks.length] = (byte)(currentRamBank & 0xff);
-        state[ramBanks.length + 1] = (byte)(currentRomBank & 0xff);
+        state[ramBanks.length] = (byte)(currentRAmBank & 0xff);
+        state[ramBanks.length + 1] = (byte)(currentROmBank & 0xff);
         state[ramBanks.length + 2] = (byte)(ramEnabled ? 1 : 0);
         return state;
     }
