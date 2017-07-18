@@ -36,6 +36,8 @@ import java.nio.ByteBuffer;
  * GPU for gameboy
  * 
  * Updates the graphics according to CPU and memory
+ *
+ * TODO: Still buggy, Dr.Mario doesn't work?
  * 
  * referenced:
  * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-GPU-Timings
@@ -45,10 +47,7 @@ import java.nio.ByteBuffer;
  * @author tomis007
  */
 public class GPU {
-    //private final BufferedImage screenDisplay;
-    //private final LcdScreen lcdscreen;
     private final GBMem memory;
-    //private boolean lcdDisplayEnabled;
     private ByteBuffer buffer;
     private final CPU cpu;
     /**
@@ -115,40 +114,11 @@ public class GPU {
     public GPU(GBMem memory, CPU cpu) {//, boolean showWindow) {
         this.memory = memory;
         this.cpu = cpu;
-        //lcdDisplayEnabled = showWindow;
         modeClock = 456;
         buffer = ByteBuffer.allocate(23040);
         prev_enabled = true;
         currentMode = OAM_MODE;
-
-        //TODO remove GUI aspects
-        //screenDisplay = null;
-        /*
-        screenDisplay = new BufferedImage(160, 144, BufferedImage.TYPE_INT_ARGB);
-        for (int i = 0; i < screenDisplay.getWidth(); ++i) {
-            for (int j = 0; j < screenDisplay.getHeight(); ++j) {
-                screenDisplay.setRGB(i, j, 0xffffffff); // white
-            }
-        }
-        */
-
         this.memory.setScanLine(0);
-
-        //TODO remove GUI aspects
-        //lcdscreen = null;
-       /*
-        if (showWindow) {
-            lcdscreen = new LcdScreen(screenDisplay);
-            this.memory.setScanLine(0);
-            JFrame f = new JFrame("GameBoi");
-            f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            f.add(lcdscreen);
-            f.pack();
-            f.addKeyListener(new gameboyKeyListener(memory, cpu));
-            f.setVisible(true);
-        } else {
-            lcdscreen = null;
-        } */
     }
 
     /**
@@ -215,14 +185,6 @@ public class GPU {
     public static int byteSaveLength() {
         return BYTE_SAVE_LENGTH;
     }
-    /**
-     *
-     * draws current state to LCD screen
-     *
-     */
-    /*public void drawToLCD () {
-        lcdscreen.repaint();
-    }*/
 
     /**
      * copies the screen data into buffer
@@ -478,11 +440,7 @@ public class GPU {
             if (wY <= yPos && xCoord >= wX && windowDrawn) {
                 break; //window will be drawn at this position
             } else {
-                //if (lcdDisplayEnabled) {
-                    //draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
-                //} else {
-                    drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
-                //}
+                drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
             }
         }
     }
@@ -551,9 +509,6 @@ public class GPU {
     }
 
 
-
-
-
     /**
      * Draws one window tile line at specified position
      * Window doesn't wrap
@@ -574,11 +529,7 @@ public class GPU {
             int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
             int xCoord = (xPos + pixel);
             if (xCoord < 160 && yPos < 144 && xCoord >= 0 && yPos >= 0) {
-                //if (lcdDisplayEnabled) {
-                    //draw_pix_lcdscreen(xCoord, yPos, getColor(colorNum, paletteAddress));
-                //} else {
-                    drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
-                //}
+                drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
             }
         }
     }
@@ -678,20 +629,10 @@ public class GPU {
             int color = getColor(color_num, paletteAddress);
             if ((x + pix < 160) && (x + pix >= 0) && color_num != 0) {
                 if (hasPriority) {
-                    //if (lcdDisplayEnabled) {
-                        //draw_pix_lcdscreen(x + pix, scanline, color);
-                    //} else {
-                        drawToBuffer(x + pix, scanline, color);
-                    //}
+                    drawToBuffer(x + pix, scanline, color);
                 } else {
                     if (bufferToColor(x + pix, scanline) == getColor(0, 0xff47)) {
-                    //if ((lcdDisplayEnabled && getColor(0, 0xff47) == screenDisplay.getRGB(x + pix,scanline))
-                            //|| (!lcdDisplayEnabled && bufferToColor(x + pix, scanline) == getColor(0, 0xff47))) {
-                        //if (lcdDisplayEnabled) {
-                            //draw_pix_lcdscreen(x + pix, scanline, color);
-                        //} else {
-                            drawToBuffer(x + pix, scanline, color);
-                        //}
+                        drawToBuffer(x + pix, scanline, color);
                     }
                 }
             }
@@ -719,10 +660,6 @@ public class GPU {
         return colorNum;
     }
 
-    /*private void draw_pix_lcdscreen(int x, int y, int color) {
-        screenDisplay.setRGB(x,y,color);
-    }*/
-
 
     /**
      * isSet
@@ -748,8 +685,7 @@ public class GPU {
     private int getColor(int pixNum, int palAddress) {
         int palette = memory.readByte(palAddress);
         int colSelect;
-        
-        
+        int color;
         switch(pixNum) {
             case 0: colSelect = (palette & 0x3);
                     break;
@@ -763,8 +699,6 @@ public class GPU {
                     colSelect = 0;
                     break;
         }
-        
-        int color;
         switch (colSelect & 0x3) {
             case 0: color = 0xffffffff;
                     break;
@@ -778,6 +712,5 @@ public class GPU {
         }
         return color;
     }
-
 
 }
