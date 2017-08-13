@@ -71,11 +71,14 @@ public class GameBoi {
     public static void main(String[] argv) {
         //GameBoi gameboy = new GameBoi(selectRom());
         GameBoi gb = new GameBoi();
+        //gb.loadRom(Paths.get())
+        gb.loadRom(Paths.get("/Users/thomas/cpu_instrs.gb"));
+        //gb.loadRom(Paths.get("/Users/thomas/tetris.gb"));
         //gb.loadSave("pokemon");
 
         //gb.loadRom(Paths.get("/Users/thomas/stuff/tetris.gb"));
         //gb.loadGame("test");
-        for (int i = 0; i < 2000; ++i) {
+        for (int i = 0; i < 1000; ++i) {
             gb.renderFrame();
         }
         //gb.saveGame("pokemon");
@@ -90,6 +93,11 @@ public class GameBoi {
         z80 = new CPU(mem);
         gpu = new GPU(mem, z80);
         mem.loadRom(rom);
+        if (mem.isGBCRom()) {
+            gpu.setGBCMode(true);
+            z80.setGBCMode(true);
+        }
+
         current_rom = null;
         if (home == null || roms == null || saves == null) {
             makeHome();
@@ -120,6 +128,10 @@ public class GameBoi {
     public void loadRom(Path rom) {
         current_rom = rom;
         mem.loadRom(rom);
+        if (mem.isGBCRom()) {
+            gpu.setGBCMode(true);
+            z80.setGBCMode(true);
+        }
     }
 
     /**

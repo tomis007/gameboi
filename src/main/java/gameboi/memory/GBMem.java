@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 tomis007.
+ * Copyright 2017 tomis007.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,6 @@ package main.java.gameboi.memory;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.io.IOException;
-import java.util.Arrays;
-import main.java.gameboi.memory.MemCopyUtil;
 
 /**
  * Represents the memory of the gameboy
@@ -56,14 +54,34 @@ import main.java.gameboi.memory.MemCopyUtil;
 public class GBMem {
     private MemBanks memBank;
     private int[] vRam;
+    private int[] vRam1;
     private int[] wRam;
+    private int[] wRamBanks;
+    private int wRamIndex;
     private int[] OAMTable;
     private int[] IOPorts;
     private int[] HRam;
+    private int bankNum;
 
+    //gbc color register
+    private boolean autoInc;
+    private int bgColorIndex;
+    private int[] bgPalettes;
+
+    //gbc sprite reg
+    private boolean autoSpriteInc;
+    private int spriteIndex;
+    private int[] spritePalettes;
+
+    //if current ROM is gbc
+    private boolean gbcMode;
+
+    private boolean hBlankDMAInProgress;
+    private int dmaTransferLength;
+    private int dmaSrc;
+    private int dmaDst;
 
     //saving byte size info
-
     private static final int RAM_SAVE_LEN = MemBanks.getByteSaveSize();
     private static final int BYTE_SAVE_LENGTH = 0x41a1 + RAM_SAVE_LEN;
 
@@ -88,12 +106,32 @@ public class GBMem {
      */
     public GBMem() {
         vRam = new int[0x2000];
+        vRam1 = new int[0x2000];
+        wRamBanks = new int[0x7000];
+        wRamIndex = 1;
         wRam = new int[0x2000];
         OAMTable = new int[0xa0];
         IOPorts = new int[0x80];
         HRam = new int[0x80];
         joyPadState = 0xff; //no keys pressed
         memBank = null;
+        gbcMode = false; //defaults to false
+        bankNum = 0;
+
+        //color registers
+        bgColorIndex = 0;
+        bgPalettes = new int[0x40];
+        autoInc = false;
+
+        //sprite palette registers
+        spriteIndex = 0;
+        spritePalettes = new int[0x40];
+        autoSpriteInc = false;
+
+        hBlankDMAInProgress = false;
+        dmaTransferLength = 0;
+        dmaSrc = 0;
+        dmaDst = 0;
 
         //gb 'bios' leaves in this state
         IOPorts[0x10] = 0x80;
@@ -121,6 +159,7 @@ public class GBMem {
     /**
      * Save the current memory state to a byte array for resuming
      * Doesn't save the ROM (needs to be loaded with loadRom)
+     * TODO: SAVE GBC MODE
      *
      * @return current state of memory (in a long byte array)
      */
@@ -139,7 +178,6 @@ public class GBMem {
 
     /**
      * Load the current memory state from the byte array generated in saveMem
-     * Needs the rom to be loaded as well to play the game TODO
      *
      */
     public void loadState(byte[] save) {
@@ -180,6 +218,7 @@ public class GBMem {
                 cartridge[i] = Byte.toUnsignedInt(rom[i]);
             }
 
+            gbcMode = (cartridge[0x143] != 0x0);
             memBank = new MemBanks(cartridge);
         } catch (IOException e) {
             System.err.println("Error Loading rom: " + e.getMessage());
@@ -207,11 +246,24 @@ public class GBMem {
         } else if (address < 0x8000) {
             return memBank.readByte(address);
         } else if (address < 0xa000) {
-            return vRam[address - 0x8000];
+            if (bankNum == 0)
+                return vRam[address - 0x8000];
+            else
+                return vRam1[address - 0x8000];
         } else if (address < 0xc000) {
             return memBank.readByte(address);
         } else if (address < 0xe000) {
-            return wRam[address - 0xc000];
+            if (gbcMode) {
+                if (address < 0xd000) {
+                    return wRam[address - 0xc000];
+                } else {
+                    int index = (address - 0xd000) + (0x1000 * (wRamIndex - 1));
+                    return wRamBanks[index];
+                }
+
+            } else {
+                return wRam[address - 0xc000];
+            }
         } else if (address < 0xfe00) {
             return wRam[address - 0xe000];
         } else if (address < 0xfea0) {
@@ -220,7 +272,13 @@ public class GBMem {
             System.err.println("Tried to read from invalid address: " + Integer.toHexString(address));
             return -1; // can't use this area
         } else if (address < 0xff80){
-            return IOPorts[address - 0xff00];
+            if (address == 0xff69) {
+                return bgPalettes[bgColorIndex];
+            } else if (address == 0xff6b) {
+                return spritePalettes[spriteIndex];
+            } else {
+                return IOPorts[address - 0xff00];
+            }
         } else if (address < 0x10000){
             return HRam[address - 0xff80];
         } else {
@@ -228,6 +286,31 @@ public class GBMem {
             return -1; //oops something went wrong
         }
 
+    }
+
+    public int readVram(int address, int bank) {
+        bank &= 1;
+        if (address >= 0x8000 && address < 0xc000) {
+            if (bank == 1) {
+                return vRam1[address - 0x8000];
+            } else {
+                return vRam[address - 0x8000];
+            }
+        }
+        else {
+            System.err.println("invalid vram1 read");
+        }
+        return -1;
+    }
+
+
+    public int readVram1(int address) {
+        if (address >= 0x8000 && address < 0xc000)
+            return vRam1[address - 0x8000];
+        else
+            System.err.println("invalid vram1 read");
+            System.exit(1); //TODO  get rid of
+        return -1;
     }
 
     /**
@@ -247,11 +330,23 @@ public class GBMem {
         if (address < 0x8000) {
             memBank.writeByte(address, data);
         } else if (address < 0xa000){
-            vRam[address - 0x8000] = data;
+            if (bankNum == 0)
+                vRam[address - 0x8000] = data;
+            else
+                vRam1[address - 0x8000] = data;
         } else if (address < 0xc000) {
             memBank.writeByte(address, data);
         } else if (address < 0xe000) {
-            wRam[address - 0xc000] = data;
+            if (gbcMode) {
+                if (address < 0xd000) {
+                    wRam[address - 0xc000] = data;
+                } else {
+                    int index = (address - 0xd000) + (0x1000 * (wRamIndex - 1));
+                    wRamBanks[index] = data;
+                }
+            } else {
+                wRam[address - 0xc000] = data;
+            }
         } else if (address < 0xfe00) {
             wRam[address - 0xe000] = data; //ECHO
         } else if (address < 0xfea0) {
@@ -264,7 +359,7 @@ public class GBMem {
             HRam[address - 0xff80] = data;
         }
     }
-    
+
     /**
      * Returns current scanline
      * 
@@ -286,6 +381,7 @@ public class GBMem {
      */
     private void handleIOWriting(int address, int data) {
         int newAddress = address - 0xff00;
+        data &= 0xff;
 
         if (address == 0xff04) {
             IOPorts[newAddress] = 0; //reset DIV register
@@ -295,6 +391,34 @@ public class GBMem {
             DMATransfer(data);
         } else if (address == 0xff40) {
             IOPorts[newAddress] = data;
+        } else if (address == 0xff4d) {
+            System.err.println("GBC DOUBLE SPEED MODE");
+        } else if (address == 0xff4f) {
+            IOPorts[newAddress] = data & 0x1;
+            bankNum = data & 0x1;
+        } else if (address == 0xff68) {
+            // color 'register'
+            autoInc = (data & 0x80) != 0x0;
+            bgColorIndex = data & 0x3f;
+            IOPorts[newAddress] = data;
+        } else if (address == 0xff69) {
+            bgPalettes[bgColorIndex] = data;
+            bgColorIndex += autoInc ? 1 : 0;
+            bgColorIndex &= 0x3f;
+        } else if (address == 0xff6a) {
+            autoSpriteInc = (data & 0x80) != 0x0;
+            spriteIndex = data & 0x3f;
+            IOPorts[newAddress] = data;
+        } else if (address == 0xff6b) {
+            spritePalettes[spriteIndex] = data;
+            spriteIndex += autoSpriteInc ? 1 : 0;
+        } else if (address == 0xff55) {
+            //IOPorts[newAddress] = data;
+            gbcDMATransfer(data);
+        } else if (address == 0xff70) {
+            wRamIndex = data & 0x7;
+            //writing 0 means writing 1
+            wRamIndex = wRamIndex == 0 ? 1 : wRamIndex;
         } else {
             IOPorts[newAddress] = data;
         }
@@ -314,6 +438,45 @@ public class GBMem {
             OAMTable[i] = readByte(address + i);
         }
     }
+
+    /**
+     *
+     * TODO: CHECK TRANSFER RANGES
+     * @param initial
+     */
+    private void gbcDMATransfer(int initial) {
+        System.err.println("GBC DMA TRANSFER");
+        boolean generalPurpose = !isSet(initial, 7);
+        dmaTransferLength = initial & 0x7f;
+        int src = IOPorts[0x51] << 8 | IOPorts[0x52];
+        src &= 0xfff0; //ignore lower nibble
+        int dst = IOPorts[0x53] << 8 | IOPorts[0x54];
+        dst |= 0x8000;
+        dst &= 0x1ff0; //ignore top 3 bits, lower nibble
+
+        //first check to see if stopping DMA transfer in progress
+        if (hBlankDMAInProgress) {
+            if (!isSet(initial, 7)) {
+                IOPorts[0x55] = 0xff;
+                hBlankDMAInProgress = false;
+            }
+        }
+
+        if (generalPurpose) {
+            //transfer data
+            System.err.println("General purpose gbcdma");
+            for (int i = 0; i < dmaTransferLength; ++i) {
+                this.writeByte(dst + i, this.readByte(src + i));
+            }
+            IOPorts[0x55] = 0xff;
+        } else {
+            System.err.println("HbLANK DMA ");
+            hBlankDMAInProgress = true;
+            dmaSrc = src;
+            dmaDst = dst;
+            IOPorts[0x55] = dmaTransferLength;
+        }
+    }
     
     /**
      * sets the scanline
@@ -321,15 +484,37 @@ public class GBMem {
      */ 
     public void setScanLine(int num) {
         IOPorts[0x44] = num;
-    }  
+        checkDMA();
+    }
+
+    private void checkDMA() {
+        if (hBlankDMAInProgress && IOPorts[0x44] < 144) {
+            System.err.println("doing a dma transfer scanline:" + IOPorts[0x44]);
+            for (int i = 0; i < 0x10; ++i) {
+                writeByte(dmaDst + i, readByte(dmaSrc + i));
+            }
+            dmaDst += 0x10;
+            dmaSrc += 0x10;
+            dmaTransferLength -= 0x1;
+            IOPorts[0x55] = dmaTransferLength;
+            //Done with the transfer
+            if (dmaTransferLength <= 0) {
+                hBlankDMAInProgress = false;
+                IOPorts[0x55] = 0xff;
+            }
+        }
+    }
     
     /**
      * increments the scanLine at 0xff44
+     * TODO add DMA transfer for GBC
+     * Should be in H-Blank when called
      */ 
     public void incScanLine() {
         IOPorts[0x44]++;
+        checkDMA();
     }
-    
+
     /**
      * increments the divide counter at 0xff04
      */
@@ -347,6 +532,42 @@ public class GBMem {
         IOPorts[0x41] |= bit << 2;
 
     }
+
+    //TODO Check if actually correct
+    public int getGBCBGPaletteColor(int pal, int num) {
+        if (pal < 0 || pal > 7) {
+            System.err.println(pal);
+            System.err.println("invalid bg num");
+        }
+        int color = 0;
+        int index = (pal * 8) + (num * 2);
+        int palette = bgPalettes[index] | bgPalettes[index + 1] << 8;
+        int r = palette & 0x1f;
+        int g = (palette & 0x3e0) >> 5;
+        int b = (palette & 0x7c00) >> 10;
+        color = ((r * 13 + g * 2 + b) >> 1);
+        color |= ((g * 3 + b) << 1) << 8;
+        color |= ((r * 3 + g * 2 + b * 11) >> 1) << 16;
+
+        return color;
+    }
+
+    public int getGBCSpritePaletteColor(int pal, int num) {
+        if (pal < 0 || pal > 7) {
+            System.err.println("invalid palette num");
+        }
+        int color = 0;
+        int palette = spritePalettes[(pal * 8) + (num * 2)] | spritePalettes[(pal * 8) + (num * 2) + 1] << 8;
+        int r = palette & 0x1f;
+        int g = (palette & 0x3e0) >> 5;
+        int b = (palette & 0x7c00) >> 10;
+        color = ((r * 13 + g * 2 + b) >> 1);
+        color |= ((g * 3 + b) << 1) << 8;
+        color |= ((r * 3 + g * 2 + b * 11) >> 1) << 16;
+
+        return color;
+    }
+
 
     /**
      *
@@ -381,7 +602,7 @@ public class GBMem {
         return joyPadState;
     }
     
-    
+
     /**
      *
      * translates the keyboard input into
@@ -409,7 +630,11 @@ public class GBMem {
 
         return joypad;
     }
-    
+
+    public boolean isGBCRom() {
+        return gbcMode;
+    }
+
    /**
      * isSet
      * 

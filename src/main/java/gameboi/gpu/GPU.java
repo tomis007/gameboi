@@ -1,7 +1,7 @@
 /*
  * The MIT License
  *
- * Copyright 2016 tomis007.
+ * Copyright 2017 tomis007.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +56,7 @@ public class GPU {
      */
     private int modeClock;
     private boolean prev_enabled;
+    private boolean gbcMode;
 
     private int currentMode;
 
@@ -73,7 +74,6 @@ public class GPU {
     private static final int LCD_TRANS = 3;
     private static final int HORIZ_BLANK = 0;
     private static final int VERT_BLANK = 1;
-
 
 
     /*
@@ -111,14 +111,15 @@ public class GPU {
     private static final int SPRITE_HEIGHT = 2;
 
 
-    public GPU(GBMem memory, CPU cpu) {//, boolean showWindow) {
+    public GPU(GBMem memory, CPU cpu) {
         this.memory = memory;
         this.cpu = cpu;
         modeClock = 456;
-        buffer = ByteBuffer.allocate(23040);
+        buffer = ByteBuffer.allocate(69120);
         prev_enabled = true;
         currentMode = OAM_MODE;
         this.memory.setScanLine(0);
+        this.gbcMode = false;
     }
 
     /**
@@ -202,7 +203,7 @@ public class GPU {
     public void drawBuffer(ByteBuffer buffer) {
         buffer.position(0);
         this.buffer.position(0);
-        for (int i = 0; i < 23040; ++i) {
+        for (int i = 0; i < 69120; ++i) {
             buffer.put(this.buffer.get(i));
         }
     }
@@ -227,18 +228,12 @@ public class GPU {
      */
     private void renderScan(int currentScanLine) {
         int lcdc = memory.readByte(LCDC_CONTROL);
-        
-        if (isSet(lcdc, BACKGROUND_ENABLE)) {
+        if (isSet(lcdc, BACKGROUND_ENABLE))
             drawBackground(currentScanLine);
-        }
-
-        if (isSet(lcdc, WINDOW_DISPLAY_ENABLE)) {
+        if (isSet(lcdc, WINDOW_DISPLAY_ENABLE))
             drawWindow(currentScanLine);
-        }
-
-        if (isSet(lcdc, SPRITE_ENABLE)) {
+        if (isSet(lcdc, SPRITE_ENABLE))
             drawSprites(currentScanLine);
-        }
     }
 
     /**
@@ -282,6 +277,10 @@ public class GPU {
                 set_mode(VERT_BLANK, modeClock % 456);
             }
         }
+    }
+
+    public void setGBCMode(boolean mode) {
+        this.gbcMode = mode;
     }
 
     /**
@@ -377,24 +376,39 @@ public class GPU {
         int tileDataAddress = isSet(lcdc, 4) ? 0x8000 : 0x9000;
         boolean signedIndex = !isSet(lcdc, 4);
 
+
+        // for GBC TODO
+        // Look up additional info in VRAM bank 1 (same index #)
+        // This gives palette num, bank num, horiz/vert/priority
+        // index should be the same
+        // Calculate the address, vram bank, and draw the actual background tile
+        // need to add (vram bank, palette address to drawTile)
+        // TODO HORIZ/VERT FLIP/ PRIORITY
+
         //draw tiles on current scanLine
         int yOffset = (((scY + scanLine) / 8) % 32) * 32;
         int tileLine = (scY + scanLine) % 8;
 
         for (int xTile = 0; xTile <= 20; ++xTile) {
             int xOffset = (xTile + (scX / 8)) % 32;
-            byte tileIndex = (byte)memory.readByte(tileMapAddress + yOffset + xOffset);
+            byte tileIndex = (byte)memory.readVram(tileMapAddress + yOffset + xOffset, 0);
+            int bgTileInfo;
+            if (gbcMode)
+                bgTileInfo = memory.readVram(tileMapAddress + yOffset + xOffset, 1);
+            else
+                bgTileInfo = 0;
             int tileAddress = signedIndex ? (tileIndex * 16) + tileDataAddress
                                           : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
+
 
             //calculate correct shift from scX
             int xShift = scX % 8;
             if (xTile == 0 && xShift != 0) {
-                drawTile(tileAddress, tileLine, 0, scanLine, xShift, 7);
+                drawTile(tileAddress, tileLine, 0, scanLine, xShift, 7, bgTileInfo);
             } else if (xTile == 20 && xShift != 0) {
-                drawTile(tileAddress, tileLine, 160 - xShift, scanLine, 0, xShift - 1);
+                drawTile(tileAddress, tileLine, 160 - xShift, scanLine, 0, xShift - 1, bgTileInfo);
             } else if (xTile != 20) {
-                drawTile(tileAddress, tileLine, (xTile * 8) - xShift, scanLine, 0, 7);
+                drawTile(tileAddress, tileLine, (xTile * 8) - xShift, scanLine, 0, 7, bgTileInfo);
             }
         }
     }
@@ -424,23 +438,40 @@ public class GPU {
      *                 six will start drawing at pixel 6) this is placed at xPos
      * @param line in the tile to draw (0 - 7)
      */
-    private void drawTile(int tileAddress, int line, int xPos, int yPos, int pixStart, int pixEnd) {
+    private void drawTile(int tileAddress, int line, int xPos, int yPos, int pixStart, int pixEnd, int bgTileInfo) {
         int paletteAddress = 0xff47;
-        int pixByteA = memory.readByte(tileAddress + (2 * line));
-        int pixByteB = memory.readByte(tileAddress + (2 * line) + 1);
         int wX = memory.readByte(W_X) - 7;
         int wY = memory.readByte(W_Y);
         boolean windowDrawn = isSet(memory.readByte(LCDC_CONTROL), WINDOW_DISPLAY_ENABLE);
+        int pixByteA = memory.readByte(tileAddress + (2 * line));
+        int pixByteB = memory.readByte(tileAddress + (2 * line) + 1);
+
+        if (gbcMode) {
+            //set correct GBC tile info
+            //vertical flip
+            if (isSet(bgTileInfo, 6)) {
+                line = 7 - line;
+            }
+            paletteAddress = bgTileInfo & 0x7;
+            int bankNum = isSet(bgTileInfo, 3) ? 1 : 0;
+            pixByteA = memory.readVram(tileAddress + (2 * line), bankNum);
+            pixByteB = memory.readVram(tileAddress + (2 * line) + 1, bankNum);
+        }
 
         //draw each pixel in the line
         for (int pixel = pixStart; pixel <= pixEnd; ++pixel) {
-            int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
-            int xCoord = (xPos + pixel - pixStart) % 160;
+            int pix = pixel;
+            // Horizontal flip
+            if (gbcMode && isSet(bgTileInfo, 5)) {
+                pix = 7 - pix;
+            }
+            int colorNum = getPixelColorNum(pixByteA, pixByteB, pix);
+            int xCoord = (xPos + pix - pixStart) % 160;
 
             if (wY <= yPos && xCoord >= wX && windowDrawn) {
                 break; //window will be drawn at this position
             } else {
-                drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress, true));
             }
         }
     }
@@ -455,25 +486,10 @@ public class GPU {
      * @param color of pixel to draw
      */
     private void drawToBuffer(int col, int row, int color) {
-        byte data;
-        switch(color) {
-            case 0xffffffff:
-                data = 0;
-                break;
-            case 0xffcccccc:
-                data = 1;
-                break;
-            case 0xff777777:
-                data = 2;
-                break;
-            case 0xff000000:
-                data = 3;
-                break;
-            default:
-                data = 0;
-                break;
-        }
-        buffer.put(col + (row * 160), data);
+        int index = (3 * col) + (row * 160 * 3);
+        buffer.put(index, (byte)((color & 0xff0000) >> 16));
+        buffer.put(index + 1, (byte)((color & 0xff00) >> 8));
+        buffer.put(index + 2, (byte)(color & 0xff));
     }
 
 
@@ -485,26 +501,12 @@ public class GPU {
      * @return RGB value of the color
      */
     private int bufferToColor(int col, int row) {
-        int color;
-        byte data;
-        data = buffer.get(col + (row * 160));
-        switch(data) {
-            case 0:
-                color = 0xffffffff;
-                break;
-            case 1:
-                color = 0xffcccccc;
-                break;
-            case 2:
-                color = 0xff777777;
-                break;
-            case 3:
-                color = 0xff000000;
-                break;
-            default:
-                color = 0xffffffff;
-                break;
-        }
+        int color = 0;
+        int index = (3 * col) + (row * 160 * 3);
+
+        color |= Byte.toUnsignedInt(buffer.get(index)) << 16;
+        color |= Byte.toUnsignedInt(buffer.get(index + 1)) << 8;
+        color |= Byte.toUnsignedInt(buffer.get(index + 2));
         return color;
     }
 
@@ -518,18 +520,27 @@ public class GPU {
      * @param xPos on screen to draw top left of line
      * @param yPos on screen to draw top left of line
      */
-    private void drawWindowTile(int tileAddress, int line, int xPos, int yPos) {
+    private void drawWindowTile(int tileAddress, int line, int xPos, int yPos, int bgTileInfo) {
         int paletteAddress = 0xff47;
 
         int pixByteA = memory.readByte(tileAddress + (2 * line));
         int pixByteB = memory.readByte(tileAddress + (2 * line) + 1);
+
+        if (gbcMode) {
+            //set correct GBC tile info
+            paletteAddress = bgTileInfo & 0x7;
+            int bankNum = isSet(bgTileInfo, 3) ? 1 : 0;
+            pixByteA = memory.readVram(tileAddress + (2 * line), bankNum);
+            pixByteB = memory.readVram(tileAddress + (2 * line) + 1, bankNum);
+        }
 
         //draw each pixel in the line
         for (int pixel = 0; pixel <= 7; ++pixel) {
             int colorNum = getPixelColorNum(pixByteA, pixByteB, pixel);
             int xCoord = (xPos + pixel);
             if (xCoord < 160 && yPos < 144 && xCoord >= 0 && yPos >= 0) {
-                drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress));
+                //TODO is this bg palette?
+                drawToBuffer(xCoord, yPos, getColor(colorNum, paletteAddress, true));
             }
         }
     }
@@ -548,23 +559,28 @@ public class GPU {
         int tileMapAddress = isSet(lcdc, 6) ? 0x9c00 : 0x9800;
         int tileDataAddress = isSet(lcdc, 4) ? 0x8000 : 0x9000;
         boolean signedIndex = !isSet(lcdc, 4);
+        int bgTileInfo;
 
 
         if (wY > 143 || wX > 166 || wY > scanLine) {
             return; //window not on screen or on this line
         }
-
         //draw tiles on current scanLine
         int yOffset = ((scanLine - wY) / 8) * 32;
         int tileLine = (scanLine - wY) % 8;
 
         for (int xTile = 0; xTile <= 20; ++xTile) {
-            byte tileIndex = (byte)memory.readByte(tileMapAddress + yOffset + xTile);
+            byte tileIndex = (byte)memory.readVram(tileMapAddress + yOffset + xTile, 0);
+            if (gbcMode)
+                bgTileInfo = memory.readVram(tileMapAddress + yOffset + xTile, 1);
+            else
+                bgTileInfo = 0;
+
             int tileAddress = signedIndex ? (tileIndex * 16) + tileDataAddress
                                           : (Byte.toUnsignedInt(tileIndex) * 16) + tileDataAddress;
 
             int xCoord = (wX - 7) + (xTile * 8);
-            drawWindowTile(tileAddress, tileLine, xCoord, scanLine);
+            drawWindowTile(tileAddress, tileLine, xCoord, scanLine, bgTileInfo);
         }
     }
 
@@ -578,6 +594,9 @@ public class GPU {
     private void drawSprites(int scanline) {
         int lcdc = memory.readByte(LCDC_CONTROL);
         int height = isSet(lcdc, SPRITE_HEIGHT) ? 16 : 8;
+
+        //TODO for GBC mainly the same
+        // VRAM Bank #, different palette number
 
         for (int i = 0; i < 40; ++i){
             int offset = (39 - i) * 4;
@@ -623,17 +642,24 @@ public class GPU {
         int pixDataA = memory.readByte(address + offset);
         int pixDataB = memory.readByte(address + offset + 1);
 
+        if (gbcMode) {
+            paletteAddress = flags & 0x7;
+            int bankNum = isSet(flags, 3) ? 1 : 0;
+            pixDataA = memory.readVram(address + offset, bankNum);
+            pixDataB = memory.readVram(address + offset + 1, bankNum);
+        }
+
         for (int pix = 0; pix < 8; ++pix) {
             int col_index = horizFlip ? 7 - pix : pix;
             int color_num = getPixelColorNum(pixDataA, pixDataB, col_index);
-            int color = getColor(color_num, paletteAddress);
+            int color = getColor(color_num, paletteAddress, false);
             if ((x + pix < 160) && (x + pix >= 0) && color_num != 0) {
                 if (hasPriority) {
                     drawToBuffer(x + pix, scanline, color);
                 } else {
-                    if (bufferToColor(x + pix, scanline) == getColor(0, 0xff47)) {
+                    //if (bufferToColor(x + pix, scanline) == getColor(0, 0xff47, false)) {
                         drawToBuffer(x + pix, scanline, color);
-                    }
+                    //}
                 }
             }
         }
@@ -676,13 +702,19 @@ public class GPU {
 
     /**
      * Translates the pixColor (0 - 3) to actual
-     * color RGB
+     * color RGB int (four byte value)
      *
      * @param pixNum from tile/sprite to translate
      * @param palAddress to interpret the pix number
      * @return a RGB value representing the actual color
      */
-    private int getColor(int pixNum, int palAddress) {
+    private int getColor(int pixNum, int palAddress, boolean backGround) {
+        if (gbcMode && backGround) {
+            return memory.getGBCBGPaletteColor(palAddress, pixNum);
+        } else if (gbcMode) {
+            return memory.getGBCSpritePaletteColor(palAddress, pixNum);
+        }
+
         int palette = memory.readByte(palAddress);
         int colSelect;
         int color;
@@ -700,15 +732,15 @@ public class GPU {
                     break;
         }
         switch (colSelect & 0x3) {
-            case 0: color = 0xffffffff;
+            case 0: color = 0xffffff;
                     break;
-            case 1: color = 0xffcccccc;
+            case 1: color = 0xcccccc;
                     break;
-            case 2: color = 0xff777777;
+            case 2: color = 0x777777;
                     break;
-            case 3: color = 0xff000000;
+            case 3: color = 0x000000;
                     break;
-            default: color = 0xffffffff;
+            default: color = 0xffffff;
         }
         return color;
     }
