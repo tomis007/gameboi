@@ -83,7 +83,8 @@ public class GBMem {
 
     //saving byte size info
     private static final int RAM_SAVE_LEN = MemBanks.getByteSaveSize();
-    private static final int BYTE_SAVE_LENGTH = 0x41a1 + RAM_SAVE_LEN;
+    private static final int GBC_SAVE_LEN = 0xa089;
+    private static final int BYTE_SAVE_LENGTH = 0x41a1 + RAM_SAVE_LEN + GBC_SAVE_LEN;
 
     /**
      * KEY 7 - SELECT
@@ -94,7 +95,7 @@ public class GBMem {
      * KEY 2 - LEFT
      * KEY 1 - UP
      * KEY 0 - DOWN
-     */
+    */
     private int joyPadState;
 
 
@@ -107,7 +108,7 @@ public class GBMem {
     public GBMem() {
         vRam = new int[0x2000];
         vRam1 = new int[0x2000];
-        wRamBanks = new int[0x7000];
+        wRamBanks = new int[0x8000];
         wRamIndex = 1;
         wRam = new int[0x2000];
         OAMTable = new int[0xa0];
@@ -171,10 +172,56 @@ public class GBMem {
         MemCopyUtil.copyArray(IOPorts, 0, save, 0x40a0, 0x80);
         MemCopyUtil.copyArray(HRam, 0, save, 0x4120, 0x80);
         System.arraycopy(memBank.saveState(), 0, save, 0x41a0, RAM_SAVE_LEN);
+        saveGBCState(save, 0x41a0 + RAM_SAVE_LEN);
         save[BYTE_SAVE_LENGTH - 1] = (byte)(joyPadState & 0xff);
         return save;
     }
 
+    /**
+     *
+     *
+     * @param save the GBC state
+     * @param start index to start saving at
+     */
+    private void saveGBCState(byte[] save, int start) {
+        System.err.println("Saving state");
+        MemCopyUtil.copyArray(vRam1, 0, save, start, 0x2000);
+        MemCopyUtil.copyArray(wRamBanks, 0, save, start + 0x2000, 0x8000);
+        MemCopyUtil.copyArray(bgPalettes, 0, save, start + 0xa000, 0x40);
+        MemCopyUtil.copyArray(spritePalettes, 0, save, start + 0xa040, 0x40);
+        save[start + 0xa080] = (byte)bgColorIndex;
+        save[start + 0xa080 + 1] = (byte)(autoInc ? 1 : 0);
+        save[start + 0xa080 + 2] = (byte)spriteIndex;
+        save[start + 0xa080 + 3] = (byte)(autoSpriteInc ? 1 : 0);
+        save[start + 0xa080 + 4] = (byte)dmaTransferLength;
+        save[start + 0xa080 + 5] = (byte)dmaSrc;
+        save[start + 0xa080 + 6] = (byte)dmaDst;
+        save[start + 0xa080 + 7] = (byte)(hBlankDMAInProgress ? 1 : 0);
+        save[start + 0xa080 + 8] = (byte)(gbcMode ? 1 : 0);
+    }
+
+    /**
+     * Load the gbc state
+     *
+     * @param save
+     * @param start
+     */
+    private void loadGBCState(byte[] save, int start) {
+        System.err.println("loading state");
+        MemCopyUtil.copyArray(vRam1, 0, save, start, 0x2000);
+        MemCopyUtil.copyArray(wRamBanks, 0, save, start + 0x2000, 0x8000);
+        MemCopyUtil.copyArray(bgPalettes, 0, save, start + 0xa000, 0x40);
+        MemCopyUtil.copyArray(spritePalettes, 0, save, start + 0xa040, 0x40);
+        bgColorIndex = Byte.toUnsignedInt(save[start + 0xa080]);
+        autoInc  = Byte.toUnsignedInt(save[start + 0xa080 + 1]) == 1;
+        spriteIndex = Byte.toUnsignedInt(save[start + 0xa080 + 2]);
+        autoSpriteInc  = Byte.toUnsignedInt(save[start + 0xa080 + 3]) == 1;
+        dmaTransferLength = Byte.toUnsignedInt(save[start + 0xa080 + 4]);
+        dmaSrc = Byte.toUnsignedInt(save[start + 0xa080 + 5]);
+        dmaDst = Byte.toUnsignedInt(save[start + 0xa080 + 6]);
+        hBlankDMAInProgress  = Byte.toUnsignedInt(save[start + 0xa080 + 7]) == 1;
+        gbcMode = Byte.toUnsignedInt(save[start + 0xa080 + 8]) == 1;
+    }
 
     /**
      * Load the current memory state from the byte array generated in saveMem
@@ -189,6 +236,7 @@ public class GBMem {
         byte[] ram = new byte[RAM_SAVE_LEN];
         System.arraycopy(save, 0x41a0, ram, 0, RAM_SAVE_LEN);
         memBank.loadState(ram);
+        loadGBCState(save, 0x41a0 + RAM_SAVE_LEN);
         joyPadState = Byte.toUnsignedInt(save[BYTE_SAVE_LENGTH - 1]);
     }
 
@@ -255,16 +303,15 @@ public class GBMem {
         } else if (address < 0xe000) {
             if (gbcMode) {
                 if (address < 0xd000) {
-                    return wRam[address - 0xc000];
+                    return wRamBanks[address & 0x0fff];
                 } else {
-                    int index = (address - 0xd000) + (0x1000 * (wRamIndex - 1));
-                    return wRamBanks[index];
+                    return wRamBanks[(address & 0x0fff) + (0x1000 * wRamIndex)];
                 }
-
             } else {
                 return wRam[address - 0xc000];
             }
         } else if (address < 0xfe00) {
+            //TODO fix for GBC?
             return wRam[address - 0xe000];
         } else if (address < 0xfea0) {
             return OAMTable[address - 0xfe00];
@@ -298,19 +345,18 @@ public class GBMem {
             }
         }
         else {
-            System.err.println("invalid vram1 read");
+            System.err.println("invalid vram1 read" + Integer.toHexString(address));
         }
         return -1;
     }
 
-
-    public int readVram1(int address) {
+    public void writeVram0(int address, int data) {
         if (address >= 0x8000 && address < 0xc000)
-            return vRam1[address - 0x8000];
-        else
-            System.err.println("invalid vram1 read");
-            System.exit(1); //TODO  get rid of
-        return -1;
+            vRam[address - 0x8000] = data & 0xff;
+        else {
+            System.err.println("invalid vram0 write");
+            System.err.println(Integer.toHexString(address));
+        }
     }
 
     /**
@@ -339,10 +385,9 @@ public class GBMem {
         } else if (address < 0xe000) {
             if (gbcMode) {
                 if (address < 0xd000) {
-                    wRam[address - 0xc000] = data;
+                    wRamBanks[address & 0x0fff] = data;
                 } else {
-                    int index = (address - 0xd000) + (0x1000 * (wRamIndex - 1));
-                    wRamBanks[index] = data;
+                    wRamBanks[(address & 0x0fff) + (0x1000 * wRamIndex)] = data;
                 }
             } else {
                 wRam[address - 0xc000] = data;
@@ -416,9 +461,11 @@ public class GBMem {
             //IOPorts[newAddress] = data;
             gbcDMATransfer(data);
         } else if (address == 0xff70) {
+            System.err.println("changing wramindex: " + Integer.toString(data));
             wRamIndex = data & 0x7;
-            //writing 0 means writing 1
-            wRamIndex = wRamIndex == 0 ? 1 : wRamIndex;
+            if (wRamIndex == 0) {
+                wRamIndex = 1;
+            }
         } else {
             IOPorts[newAddress] = data;
         }
@@ -445,14 +492,12 @@ public class GBMem {
      * @param initial
      */
     private void gbcDMATransfer(int initial) {
-        System.err.println("GBC DMA TRANSFER");
+        System.err.println("DMA TRANSFER");
         boolean generalPurpose = !isSet(initial, 7);
         dmaTransferLength = initial & 0x7f;
-        int src = IOPorts[0x51] << 8 | IOPorts[0x52];
-        src &= 0xfff0; //ignore lower nibble
-        int dst = IOPorts[0x53] << 8 | IOPorts[0x54];
+        int src = IOPorts[0x51] << 8 | (IOPorts[0x52] & 0xf0);
+        int dst = (IOPorts[0x53] & 0x1f) << 8 | (IOPorts[0x54] & 0xf0);
         dst |= 0x8000;
-        dst &= 0x1ff0; //ignore top 3 bits, lower nibble
 
         //first check to see if stopping DMA transfer in progress
         if (hBlankDMAInProgress) {
@@ -464,13 +509,12 @@ public class GBMem {
 
         if (generalPurpose) {
             //transfer data
-            System.err.println("General purpose gbcdma");
+            dmaTransferLength = 0x10 + (dmaTransferLength * 0x10);
             for (int i = 0; i < dmaTransferLength; ++i) {
-                this.writeByte(dst + i, this.readByte(src + i));
+                writeByte(dst + i, readByte(src + i));
             }
             IOPorts[0x55] = 0xff;
         } else {
-            System.err.println("HbLANK DMA ");
             hBlankDMAInProgress = true;
             dmaSrc = src;
             dmaDst = dst;
@@ -489,7 +533,6 @@ public class GBMem {
 
     private void checkDMA() {
         if (hBlankDMAInProgress && IOPorts[0x44] < 144) {
-            System.err.println("doing a dma transfer scanline:" + IOPorts[0x44]);
             for (int i = 0; i < 0x10; ++i) {
                 writeByte(dmaDst + i, readByte(dmaSrc + i));
             }

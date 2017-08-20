@@ -53,6 +53,7 @@ public class MemBanks {
      * 
      */ 
     public MemBanks(int[] romCartridge) {
+        System.out.println(Integer.toHexString(romCartridge[0x147]));
         switch(romCartridge[0x147]) {
             case 0x0:
                 memBank = new MBC0(romCartridge);
@@ -81,16 +82,19 @@ public class MemBanks {
             case 0x13:
                 memBank = new MBC3(romCartridge);
                 break;
+            case 0x1b:
+                memBank = new MBC3(romCartridge);
+                break;
             default:
                 System.err.println("Sorry, this MBC is not implemented yet: " + romCartridge[0x147]);
-                System.exit(1);
+                System.exit(1); //TODO don't just quit?
         }
     }
     
     /**
      * read a Byte from the RomBank
      * 
-     * <p> The address to be read must be between located in ROM 0 -
+     * The address to be read must be between located in ROM 0 -
      *     0x7FFF, or an external Ram address
      *
      * @param address (required) address of byte to read

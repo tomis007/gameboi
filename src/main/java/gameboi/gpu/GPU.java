@@ -180,6 +180,7 @@ public class GPU {
         currentMode = Byte.toUnsignedInt(buf[0]);
         modeClock = Byte.toUnsignedInt(buf[1]);
         modeClock |= (Byte.toUnsignedInt(buf[2]) << 8);
+        gbcMode = memory.isGBCRom();
     }
 
 
@@ -403,6 +404,11 @@ public class GPU {
 
             //calculate correct shift from scX
             int xShift = scX % 8;
+            if (scanLine == 0) {
+                if (tileAddress == 0x9000) {
+                    tileAddress = 0x9010;
+                }
+            }
             if (xTile == 0 && xShift != 0) {
                 drawTile(tileAddress, tileLine, 0, scanLine, xShift, 7, bgTileInfo);
             } else if (xTile == 20 && xShift != 0) {

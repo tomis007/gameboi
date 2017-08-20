@@ -71,6 +71,7 @@ public class MBC3 implements MemoryBank {
 
     private int[] initRamBank(int bankInfo) {
         int[] bank;
+        System.err.println("Initializing MBC3");
         switch (bankInfo) {
             case 0:
                 bank = null;
@@ -107,11 +108,11 @@ public class MBC3 implements MemoryBank {
             address -= 0x4000;
             return romBanks[address + (currentROmBank * ROM_BANK_SIZE)];
         } else if (address >= 0xa000 && address < 0xc000) {
-            if (rtcEnabled && address == 0xa000) {
-                return mappedRTCReg;
-            } else if (ramEnabled) {
-                return ramBanks[(address - 0xa000) + (currentRAmBank * RAM_BANK_SIZE)];
-            }
+            //if (rtcEnabled && address == 0xa000) {
+                //return mappedRTCReg;
+            //} else if (ramEnabled) {
+                return ramBanks[(address & 0x1fff) + (currentRAmBank * RAM_BANK_SIZE)];
+            //}
         } else {
             System.err.println("invalid read from MBC1: 0x" + Integer.toHexString(address));
         }
@@ -129,8 +130,8 @@ public class MBC3 implements MemoryBank {
 
         if (address < 0x8000) {
             updateMBCRegisters(address, data);
-        } else if (ramEnabled) {
-            ramBanks[(address - 0xa000) + (currentRAmBank * RAM_BANK_SIZE)] = data & 0xff;
+        } else { //if (ramEnabled) {
+            ramBanks[(address & 0x1fff) + (currentRAmBank * RAM_BANK_SIZE)] = data & 0xff;
         }
     }
 
@@ -195,6 +196,7 @@ public class MBC3 implements MemoryBank {
         currentRAmBank = Byte.toUnsignedInt(buf[ramBanks.length]);
         currentROmBank = Byte.toUnsignedInt(buf[ramBanks.length + 1]);
         ramEnabled = Byte.toUnsignedInt(buf[ramBanks.length + 2]) == 1;
+        System.err.println("loaded state");
     }
 
     public byte[] saveState() {
