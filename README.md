@@ -2,11 +2,11 @@
 
 #### About
 This is a gameboy/gameboy color emulator written in java. It is currently
-under development. However, unlike most emulators, GameBoi does not 
-provide an interface for playing the emulator. Instead it abstracts the 
-emulation away from the GUI to provide an API for any type of GUI one may 
+under development. However, unlike most emulators, GameBoi does not
+provide an interface for playing the emulator. Instead it abstracts the
+emulation away from the GUI to provide an API for any type of GUI one may
 want to implement. For reference: https://github.com/tomis007/cloudboi
- 
+
 
 #### Status
 The emulator passes Blargg's cpu instruction test and
